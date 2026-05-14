@@ -352,6 +352,31 @@ def retrieve_with_parent(query: str, vector_db: Chroma, k: int = 5) -> tuple[str
     return "\n\n---\n\n".join(context_parts), sources
 
 
+def _filter_cited_sources(answer: str, sources: list[dict]) -> list[dict]:
+    """답변 텍스트에 실제로 언급된 출처만 반환합니다.
+
+    LLM이 사용하지 않은 검색 결과가 참고 출처에 표시되는 것을 방지합니다.
+    제목의 핵심 구문(카테고리·태그 제거 후 앞 20자)이 답변에 포함되면 인용된 것으로 판단합니다.
+
+    Args:
+        answer: LLM이 생성한 답변 문자열.
+        sources: retrieve_with_parent가 반환한 전체 소스 목록.
+
+    Returns:
+        답변에 인용된 소스만 포함한 리스트. 하나도 매칭 안 되면 원본 전체 반환.
+    """
+    cited = []
+    for src in sources:
+        title = src.get("title", "")
+        clean = title.replace(" [기간 종료]", "")
+        # "[카테고리]" 태그 최대 2개까지 제거 (예: "[전체대학원] [대학원공지]")
+        core = re.sub(r'^(\[.*?\]\s*)+', '', clean).strip()
+        # 핵심 제목 앞 20자가 답변에 포함되어 있으면 인용된 것으로 판단
+        if len(core) >= 8 and core[:20] in answer:
+            cited.append(src)
+    return cited if cited else sources
+
+
 def build_answer(query: str, context: str, history: list[dict]) -> str:
     today = date.today().strftime("%Y년 %m월 %d일")
 
@@ -511,9 +536,11 @@ def main() -> None:
 
             st.markdown(answer)
 
-            if sources:
+            # 답변에 실제 언급된 출처만 필터링해서 표시
+            display_sources = _filter_cited_sources(answer, sources) if sources else []
+            if display_sources:
                 with st.expander("📎 참고 출처"):
-                    for src in sources:
+                    for src in display_sources:
                         if src["url"] and src["url"] not in _HOME_URLS:
                             st.markdown(f"- **[{src['category']}]** [{src['title']}]({src['url']})")
                         else:
@@ -521,7 +548,7 @@ def main() -> None:
 
         assistant_idx = len(st.session_state.messages)
         st.session_state.messages.append({"role": "assistant", "content": answer})
-        st.session_state.sources[assistant_idx] = sources
+        st.session_state.sources[assistant_idx] = display_sources
 
 
 if __name__ == "__main__":
