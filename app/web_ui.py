@@ -62,23 +62,24 @@ def get_db_stats(vector_db: Chroma) -> dict:
 _EXPIRED_KEYWORDS = ["(마감)", "(선발완료)", "(종료)", "(접수마감)", "(모집완료)", "마감됨"]
 
 # 종료일 전용 패턴 — "까지/마감" 컨텍스트가 있는 날짜만 인식 (시작일·일반 날짜 제외)
-# YYYY-MM-DD까지 / YYYY.MM.DD마감
+# (?:\.?\([^)]*\))? 는 (월)/(화) 등 요일 표기를 선택적으로 처리
+# YYYY-MM-DD(요일)까지 / YYYY.MM.DD마감
 _END_FULL  = re.compile(
-    r'(\d{4})[.\-년]\s*(\d{1,2})[.\-월]\s*(\d{1,2})일?\s*(?:까지|마감)'
+    r'(\d{4})[.\-년]\s*(\d{1,2})[.\-월]\s*(\d{1,2})일?(?:\.?\([^)]*\))?\s*(?:까지|마감)'
 )
-# 두 날짜가 모두 연도 포함한 범위: YYYY.M.D ~ YYYY.M.D
+# 두 날짜가 모두 연도 포함한 범위: YYYY.M.D(요일) ~ YYYY.M.D
 _END_RANGE_FULL = re.compile(
-    r'\d{4}[.\-년]\s*\d{1,2}[.\-월]\s*\d{1,2}\s*~\s*'
+    r'\d{4}[.\-년]\s*\d{1,2}[.\-월]\s*\d{1,2}일?(?:\.?\([^)]*\))?\s*~\s*'
     r'(\d{4})[.\-년]\s*(\d{1,2})[.\-월]\s*(\d{1,2})'
 )
-# 앞만 연도 있는 범위: YYYY.M.D ~ M.D  (연도를 앞에서 상속)
+# 앞만 연도 있는 범위: YYYY.M.D(요일) ~ M.D  (연도를 앞에서 상속)
 _END_RANGE_MIXED = re.compile(
-    r'(\d{4})[.\-년]\s*\d{1,2}[.\-월]\s*\d{1,2}\s*~\s*'
+    r'(\d{4})[.\-년]\s*\d{1,2}[.\-월]\s*\d{1,2}일?(?:\.?\([^)]*\))?\s*~\s*'
     r'(\d{1,2})[.\-월]\s*(\d{1,2})'
 )
 # M/D(요일)까지 or ~M/D까지
 _END_SHORT = re.compile(
-    r'(?:~\s*)?(\d{1,2})[/월]\s*(\d{1,2})일?(?:\([^)]*\))?\s*까지'
+    r'(?:~\s*)?(\d{1,2})[/월]\s*(\d{1,2})일?(?:\.?\([^)]*\))?\s*까지'
 )
 
 
@@ -130,6 +131,49 @@ _KEYWORD_STOP_WORDS = {
 
 
 _FALLBACK_MAX = 6  # 키워드 fallback 최대 반환 문서 수
+
+
+def _rewrite_query_for_search(query: str) -> str:
+    """구어체/간접 쿼리를 벡터 검색에 적합한 핵심 명사 키워드로 변환합니다.
+
+    조사·어미가 붙은 구어체 질문이 벡터 유사도 임계값을 통과하지 못할 때
+    호출됩니다. llama-3.1-8b-instant(Groq)로 빠르게 처리합니다.
+
+    Args:
+        query: 원본 사용자 질의.
+
+    Returns:
+        검색에 적합하게 재작성된 쿼리 문자열. 실패 시 원본 반환.
+    """
+    llm = ChatGroq(
+        api_key=os.getenv("GROQ_API_KEY"),
+        model="llama-3.1-8b-instant",
+        temperature=0,
+    )
+    system = (
+        "사용자 질문에서 핵심 검색 키워드만 추출하세요. "
+        "조사(이/가/은/는/을/를/에/의/로/도/들 등) 및 어미를 제거하고 "
+        "명사 위주 3~5단어로 요약하세요. 설명 없이 키워드만 반환하세요.\n"
+        "예시:\n"
+        "입력: 대학원생이 참고하면 좋을 정보들 가져와 줘\n"
+        "출력: 대학원생 공지 지원 정책\n"
+        "입력: 지금 신청가능한 장학금 있어?\n"
+        "출력: 장학금 신청 모집\n"
+        "입력: 취업 관련해서 요즘 뭐 있어?\n"
+        "출력: 취업 채용 공고"
+    )
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", system),
+        ("human", "{q}"),
+    ])
+    chain = prompt | llm | StrOutputParser()
+    try:
+        result = chain.invoke({"q": query}).strip()
+        logger.info("🔄 쿼리 재작성: '%s' → '%s'", query, result)
+        return result if result else query
+    except Exception as e:
+        logger.warning("⚠️ 쿼리 재작성 실패 (원본 사용): %s", e)
+        return query
 
 
 def _title_keyword_entries(query: str, vector_db: Chroma) -> list[tuple]:
@@ -218,9 +262,10 @@ def retrieve_with_parent(query: str, vector_db: Chroma, k: int = 5) -> tuple[str
         else:
             valid_pool.append(entry)
 
-    # 벡터 검색 결과가 완전히 없을 때만 제목 키워드 매칭으로 보완
-    # (child_summary 오생성으로 벡터 유사도가 낮아 모두 탈락한 경우 대비)
+    # 벡터 검색 결과가 완전히 없을 때 두 단계 폴백 적용
     if len(valid_pool) + len(expired_pool) == 0:
+        # 1단계: 제목 키워드 직접 매칭
+        # (child_summary 오생성으로 벡터 유사도가 낮아 모두 탈락한 경우 대비)
         for title, url, parent, category, child in _title_keyword_entries(query, vector_db):
             if (url and url in seen_urls) or (title and title in seen_titles):
                 continue
@@ -233,6 +278,40 @@ def retrieve_with_parent(query: str, vector_db: Chroma, k: int = 5) -> tuple[str
                 expired_pool.append(entry)
             else:
                 valid_pool.append(entry)
+
+        # 2단계: 여전히 결과 없으면 구어체 쿼리를 핵심 키워드로 재작성 후 재검색
+        # (조사·어미가 붙은 간접 질문이 벡터 유사도 임계값을 통과하지 못한 경우 대비)
+        if len(valid_pool) + len(expired_pool) == 0:
+            rewritten = _rewrite_query_for_search(query)
+            if rewritten and rewritten != query:
+                rw_school = vector_db.similarity_search_with_relevance_scores(
+                    rewritten, k=k + 3, filter=school_filter
+                )
+                rw_youth = vector_db.similarity_search_with_relevance_scores(
+                    rewritten, k=k + 3, filter=youth_filter
+                )
+                rw_docs = (
+                    [doc for doc, score in rw_school if score >= _SCORE_THRESHOLD]
+                    + [doc for doc, score in rw_youth  if score >= _SCORE_THRESHOLD]
+                )
+                for doc in rw_docs:
+                    meta  = doc.metadata or {}
+                    url   = meta.get("url", "")
+                    title = meta.get("title", "")
+                    child = doc.page_content
+                    if (url and url in seen_urls) or (title and title in seen_titles):
+                        continue
+                    if url:
+                        seen_urls.add(url)
+                    if title:
+                        seen_titles.add(title)
+                    parent   = meta.get("parent_context") or child
+                    category = meta.get("category", "")
+                    entry    = (title, url, parent, category)
+                    if _doc_is_expired(title, child):
+                        expired_pool.append(entry)
+                    else:
+                        valid_pool.append(entry)
 
     # 유효 문서 우선, 없으면 만료 문서 상위 2건을 fallback으로 제공
     use_expired_fallback = len(valid_pool) == 0 and len(expired_pool) > 0
@@ -294,8 +373,10 @@ def build_answer(query: str, context: str, history: list[dict]) -> str:
             f"아래 {len(doc_titles)}개 문서가 제공되었습니다. "
             "반드시 이 문서들의 내용을 바탕으로 질문에 구체적으로 답변하세요. "
             "날짜, 금액, 신청 자격 등 구체적 정보는 원문 그대로 인용하세요. "
-            "마감일이 오늘 이후이거나 '상시 모집'이면 현재 신청 가능으로 안내하고, "
-            f"오늘 날짜({today})를 기준으로 계산하세요."
+            f"오늘은 {today}입니다. 각 항목의 신청 기간·마감일을 반드시 확인하여, "
+            f"마감일이 {today} 이전인 항목은 '신청 기간이 마감되었습니다'라고 명시하고 "
+            "답변의 주요 내용에서 제외하세요. "
+            "마감일이 오늘 이후이거나 '상시 모집'인 항목만 현재 신청 가능으로 안내하세요."
         )
 
     system_prompt = (
