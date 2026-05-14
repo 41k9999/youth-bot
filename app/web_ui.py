@@ -1,6 +1,7 @@
 # app/web_ui.py
 import os
 import re
+import logging
 from datetime import date
 from pathlib import Path
 import streamlit as st
@@ -12,6 +13,8 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 # Streamlit Cloud는 st.secrets를 os.environ에 자동 주입하지 않으므로 수동 동기화
 try:
