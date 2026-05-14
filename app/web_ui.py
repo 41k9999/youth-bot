@@ -81,6 +81,14 @@ _END_RANGE_MIXED = re.compile(
 _END_SHORT = re.compile(
     r'(?:~\s*)?(\d{1,2})[/월]\s*(\d{1,2})일?(?:\.?\([^)]*\))?\s*까지'
 )
+# 행사·특강 일시 패턴 — 행사 자체가 이미 종료된 경우도 만료로 처리
+# "일 시: 2026.5.7." / "일시: 5.7.(목)"
+_EVENT_DATE_FULL = re.compile(
+    r'일\s*시[^\d\n]{0,10}(\d{4})[.\-년]\s*(\d{1,2})[.\-월]\s*(\d{1,2})'
+)
+_EVENT_DATE_SHORT = re.compile(
+    r'일\s*시[^\d\n]{0,10}(\d{1,2})[.\-월]\s*(\d{1,2})'
+)
 
 
 def _doc_is_expired(title: str, child_summary: str) -> bool:
@@ -112,6 +120,16 @@ def _doc_is_expired(title: str, child_summary: str) -> bool:
         except ValueError: pass
 
     for m, d_ in _END_SHORT.findall(text):
+        try:
+            if date(today.year, int(m), int(d_)) < today: return True
+        except ValueError: pass
+
+    for y, m, d_ in _EVENT_DATE_FULL.findall(text):
+        try:
+            if date(int(y), int(m), int(d_)) < today: return True
+        except ValueError: pass
+
+    for m, d_ in _EVENT_DATE_SHORT.findall(text):
         try:
             if date(today.year, int(m), int(d_)) < today: return True
         except ValueError: pass
