@@ -34,8 +34,11 @@ st.set_page_config(
 _CHROMA_DIR = str(Path(__file__).resolve().parent.parent / "chroma_db")
 _SCHOOL_CATS = {"대학공지", "학사공지", "장학공지", "대학원공지", "취업공지"}
 _HOME_URLS = {"https://www.youthcenter.go.kr/", "https://www.youthcenter.go.kr"}
-_MAX_CONTEXT_CHARS = 12_000
-_MAX_HISTORY_MSGS = 5
+_YOUTH_DETAIL_URL = "https://www.youthcenter.go.kr/youngPlcyUnif/youngPlcyUnifDtl.do?bizId={}"
+_MAX_CONTEXT_CHARS = 8_000
+_MAX_HISTORY_MSGS = 2
+_MAX_DOCS = 4
+_MAX_DOC_CHARS = 1_500
 _SCORE_THRESHOLD = 0.15  # 이 점수 미만인 문서는 관련 없는 것으로 판단해 제외
 
 
@@ -62,22 +65,25 @@ def get_db_stats(vector_db: Chroma) -> dict:
 
 
 # ── 만료 판단 ─────────────────────────────────────────────────────────────────
-_EXPIRED_KEYWORDS = ["(마감)", "(선발완료)", "(종료)", "(접수마감)", "(모집완료)", "마감됨"]
+_EXPIRED_KEYWORDS = [
+    "(마감)", "(선발완료)", "(종료)", "(접수마감)", "(모집완료)", "마감됨",
+    "(지급완료)", "지급완료",
+]
 
 # 종료일 전용 패턴 — "까지/마감" 컨텍스트가 있는 날짜만 인식 (시작일·일반 날짜 제외)
 # (?:\.?\([^)]*\))? 는 (월)/(화) 등 요일 표기를 선택적으로 처리
 # YYYY-MM-DD(요일)까지 / YYYY.MM.DD마감
 _END_FULL  = re.compile(
-    r'(\d{4})[.\-년]\s*(\d{1,2})[.\-월]\s*(\d{1,2})일?(?:\.?\([^)]*\))?\s*(?:까지|마감)'
+    r'(\d{4})[.\-년]\s*(\d{1,2})[.\-월]\s*(\d{1,2})\.?일?(?:\.?\([^)]*\))?\s*(?:까지|마감)'
 )
 # 두 날짜가 모두 연도 포함한 범위: YYYY.M.D(요일) ~ YYYY.M.D
 _END_RANGE_FULL = re.compile(
-    r'\d{4}[.\-년]\s*\d{1,2}[.\-월]\s*\d{1,2}일?(?:\.?\([^)]*\))?\s*~\s*'
+    r'\d{4}[.\-년]\s*\d{1,2}[.\-월]\s*\d{1,2}\.?일?(?:\.?\([^)]*\))?\s*~\s*'
     r'(\d{4})[.\-년]\s*(\d{1,2})[.\-월]\s*(\d{1,2})'
 )
 # 앞만 연도 있는 범위: YYYY.M.D(요일) ~ M.D  (연도를 앞에서 상속)
 _END_RANGE_MIXED = re.compile(
-    r'(\d{4})[.\-년]\s*\d{1,2}[.\-월]\s*\d{1,2}일?(?:\.?\([^)]*\))?\s*~\s*'
+    r'(\d{4})[.\-년]\s*\d{1,2}[.\-월]\s*\d{1,2}\.?일?(?:\.?\([^)]*\))?\s*~\s*'
     r'(\d{1,2})[.\-월]\s*(\d{1,2})'
 )
 # M/D(요일)까지 or ~M/D까지
@@ -147,7 +153,8 @@ _KEYWORD_STOP_WORDS = {
     "있나요", "있어", "어떤", "어떻게", "재학생", "학생",
     "서울", "과기대", "뭔지", "무엇", "지원", "모집", "신청",
     "프로그램", "사업", "운영", "교육", "연구", "활용",
-    "교수",  # 일반 단어라 관련없는 문서 매칭 방지; 이름(고유명사)으로만 검색되도록
+    "교수",
+    "SeoulTech", "seoultech",
 }
 
 
@@ -204,32 +211,39 @@ def _title_keyword_entries(query: str, vector_db: Chroma) -> list[tuple]:
     2글자 이상 고유 키워드(불용어 제외)가 제목에 포함된 경우에만 반환한다.
     """
     raw_words = re.split(r'[\s,·\-\(\)\[\]]+', query)
-    # 2글자 이상 + 불용어 제외 → 고유 식별자(인턴, 교수명, 연구실명 등) 추출
-    words = [w for w in raw_words if len(w) >= 2 and w not in _KEYWORD_STOP_WORDS]
+    # 조사 제거 후 키워드 추출 (예: "가족장학에" → "가족장학")
+    _particles = re.compile(r'(에서|으로|한테서|에게서|에게|한테|에서|에|의|을|를|이|가|은|는|도|만|과|와)$')
+    words = [_particles.sub('', w) for w in raw_words if len(w) >= 2 and w not in _KEYWORD_STOP_WORDS]
+    words = [w for w in words if len(w) >= 2]
     if not words:
         return []
 
     all_data = vector_db.get(include=["metadatas", "documents"])
-    results: list[tuple] = []
+    scored: list[tuple] = []   # (match_count, title, url, parent, category, child)
     seen_titles: set[str] = set()
 
     for meta, content in zip(all_data["metadatas"], all_data["documents"]):
         title = meta.get("title", "")
         if not title or title in seen_titles:
             continue
-        if any(w in title for w in words):
+        match_count = sum(1 for w in words if w in title)
+        if match_count > 0:
             seen_titles.add(title)
-            results.append((
+            scored.append((
+                match_count,
                 title,
                 meta.get("url", ""),
                 meta.get("parent_context", "") or content,
                 meta.get("category", ""),
-                content,  # child (만료 판단용)
+                content,
             ))
-        if len(results) >= _FALLBACK_MAX:
-            break
 
-    return results
+    # 매칭 키워드 많은 순 정렬 → 가장 관련성 높은 문서 우선
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [
+        (t, u, p, c, ch)
+        for _, t, u, p, c, ch in scored[:_FALLBACK_MAX]
+    ]
 
 
 def retrieve_with_parent(query: str, vector_db: Chroma, k: int = 5) -> tuple[str, list[dict]]:
@@ -274,7 +288,7 @@ def retrieve_with_parent(query: str, vector_db: Chroma, k: int = 5) -> tuple[str
         if title:
             seen_titles.add(title)
 
-        parent   = meta.get("parent_context") or child
+        parent   = (meta.get("parent_context") or child)[:_MAX_DOC_CHARS]
         category = meta.get("category", "")
         entry    = (title, url, parent, category)
 
@@ -283,11 +297,8 @@ def retrieve_with_parent(query: str, vector_db: Chroma, k: int = 5) -> tuple[str
         else:
             valid_pool.append(entry)
 
-    # 벡터 검색 결과가 완전히 없을 때 두 단계 폴백 적용
-    if len(valid_pool) + len(expired_pool) == 0:
-        # 1단계: 제목 키워드 직접 매칭
-        # (child_summary 오생성으로 벡터 유사도가 낮아 모두 탈락한 경우 대비)
-        for title, url, parent, category, child in _title_keyword_entries(query, vector_db):
+    # 키워드 직접 매칭 — 항상 실행해 벡터 검색 누락 문서(만료 포함) 보완
+    for title, url, parent, category, child in _title_keyword_entries(query, vector_db):
             if (url and url in seen_urls) or (title and title in seen_titles):
                 continue
             if url:
@@ -300,9 +311,8 @@ def retrieve_with_parent(query: str, vector_db: Chroma, k: int = 5) -> tuple[str
             else:
                 valid_pool.append(entry)
 
-        # 2단계: 여전히 결과 없으면 구어체 쿼리를 핵심 키워드로 재작성 후 재검색
-        # (조사·어미가 붙은 간접 질문이 벡터 유사도 임계값을 통과하지 못한 경우 대비)
-        if len(valid_pool) + len(expired_pool) == 0:
+    # 구어체 쿼리 재작성 후 재검색 (여전히 결과 없을 때)
+    if len(valid_pool) + len(expired_pool) == 0:
             rewritten = _rewrite_query_for_search(query)
             if rewritten and rewritten != query:
                 rw_school = vector_db.similarity_search_with_relevance_scores(
@@ -326,7 +336,7 @@ def retrieve_with_parent(query: str, vector_db: Chroma, k: int = 5) -> tuple[str
                         seen_urls.add(url)
                     if title:
                         seen_titles.add(title)
-                    parent   = meta.get("parent_context") or child
+                    parent   = (meta.get("parent_context") or child)[:_MAX_DOC_CHARS]
                     category = meta.get("category", "")
                     entry    = (title, url, parent, category)
                     if _doc_is_expired(title, child):
@@ -335,52 +345,59 @@ def retrieve_with_parent(query: str, vector_db: Chroma, k: int = 5) -> tuple[str
                         valid_pool.append(entry)
 
     # 유효 문서 우선, 없으면 만료 문서 상위 2건을 fallback으로 제공
-    use_expired_fallback = len(valid_pool) == 0 and len(expired_pool) > 0
-    docs_to_use = valid_pool if not use_expired_fallback else expired_pool[:2]
+    only_expired = len(valid_pool) == 0 and len(expired_pool) > 0
+    valid_limited   = valid_pool[:_MAX_DOCS]
+    expired_limited = expired_pool[:max(1, _MAX_DOCS - len(valid_limited))]
 
     context_parts: list[str] = []
     sources: list[dict]      = []
 
-    if use_expired_fallback:
+    if only_expired:
         context_parts.append(
             "⚠️ [안내] 현재 검색된 문서는 모두 신청 기간이 지난 항목입니다. "
             "참고용으로 제공하오니, 현재 신청 가능 여부를 반드시 원본 링크에서 확인하세요."
         )
 
-    for title, url, parent, category in docs_to_use:
-        expired_tag = " [기간 종료]" if use_expired_fallback else ""
-        context_parts.append(f"### [{category}] {title}{expired_tag}\n\n{parent}")
-        sources.append({"title": title + expired_tag, "url": url, "category": category})
+    for title, url, parent, category in expired_limited:
+        tagged = f"{title} [기간 종료]"
+        context_parts.append(f"### [{category}] {tagged}\n\n{parent}")
+        sources.append({"title": tagged, "url": url, "category": category})
+
+    for title, url, parent, category in valid_limited:
+        context_parts.append(f"### [{category}] {title}\n\n{parent}")
+        sources.append({"title": title, "url": url, "category": category})
 
     return "\n\n---\n\n".join(context_parts), sources
 
 
 def _filter_cited_sources(answer: str, sources: list[dict]) -> list[dict]:
-    """답변 텍스트에 실제로 언급된 출처만 반환합니다.
+    """답변에 실제 언급된 출처만 반환합니다."""
+    _GENERIC = {
+        '안내', '모집', '신청', '공고', '운영', '지원', '학기', '학년도', '참여', '대상',
+        'SeoulTech', 'KIST', '서울과학기술', '프로그램', '교육과정', '학생', '학교',
+        '현장실습', '동계계절', '동계', '하계', '계절학기', '참여학생', '모집안내',
+    }
 
-    LLM이 사용하지 않은 검색 결과가 참고 출처에 표시되는 것을 방지합니다.
-    제목의 핵심 구문(카테고리·태그 제거 후 앞 20자)이 답변에 포함되면 인용된 것으로 판단합니다.
+    def _extract_keywords(title: str) -> list[str]:
+        clean = re.sub(r'\s*\[기간 종료\]', '', title)
+        core = re.sub(r'^(\[.*?\]\s*)+', '', clean).strip()     # 카테고리 태그 제거
+        core = re.sub(r'^\([^)]*\)\s*', '', core).strip()       # 괄호 접두어 제거
+        core = re.sub(r'^[\d\s.\-~]+', '', core).strip()        # 숫자 접두어 제거
+        core = re.sub(r'[「」『』【】〔〕《》\*★☆◆■●]', ' ', core)
+        tokens = re.split(r'[\s\(\)\[\],·\-_/]+', core)
+        return [t for t in tokens if len(t) >= 5 and t not in _GENERIC]
 
-    Args:
-        answer: LLM이 생성한 답변 문자열.
-        sources: retrieve_with_parent가 반환한 전체 소스 목록.
+    def _is_cited(title: str) -> bool:
+        keywords = _extract_keywords(title)
+        return any(kw in answer for kw in keywords)
 
-    Returns:
-        답변에 인용된 소스만 포함한 리스트. 하나도 매칭 안 되면 원본 전체 반환.
-    """
-    cited = []
-    for src in sources:
-        title = src.get("title", "")
-        clean = title.replace(" [기간 종료]", "")
-        # "[카테고리]" 태그 최대 2개까지 제거 (예: "[전체대학원] [대학원공지]")
-        core = re.sub(r'^(\[.*?\]\s*)+', '', clean).strip()
-        # 핵심 제목 앞 20자가 답변에 포함되어 있으면 인용된 것으로 판단
-        if len(core) >= 8 and core[:20] in answer:
-            cited.append(src)
+    cited = [s for s in sources if _is_cited(s.get("title", ""))]
     return cited if cited else sources
 
 
 def build_answer(query: str, context: str, history: list[dict]) -> str:
+    _DETAIL_KEYWORDS = {"자세히", "자세하게", "구체적으로", "상세히", "상세하게"}
+    is_detail = any(kw in query for kw in _DETAIL_KEYWORDS)
     today = date.today().strftime("%Y년 %m월 %d일")
 
     context = context[:_MAX_CONTEXT_CHARS]
@@ -415,14 +432,19 @@ def build_answer(query: str, context: str, history: list[dict]) -> str:
             "'유사한 공고가 다시 열릴 수 있으니 학교 홈페이지를 확인하세요.'라고 덧붙이세요."
         )
     else:
+        length_guide = (
+            "핵심 정보(날짜·금액·자격 등)만 2~4문장으로 간결하게 답변하세요. 불필요한 부연 설명은 생략하세요."
+            if not is_detail else
+            "질문에 대해 날짜·자격·방법·서류 등 관련 정보를 항목별로 구체적으로 답변하세요."
+        )
         doc_instruction = (
             f"아래 {len(doc_titles)}개 문서가 제공되었습니다. "
-            "반드시 이 문서들의 내용을 바탕으로 질문에 구체적으로 답변하세요. "
-            "날짜, 금액, 신청 자격 등 구체적 정보는 원문 그대로 인용하세요. "
-            f"오늘은 {today}입니다. 각 항목의 신청 기간·마감일을 반드시 확인하여, "
-            f"마감일이 {today} 이전인 항목은 '신청 기간이 마감되었습니다'라고 명시하고 "
-            "답변의 주요 내용에서 제외하세요. "
-            "마감일이 오늘 이후이거나 '상시 모집'인 항목만 현재 신청 가능으로 안내하세요."
+            "반드시 이 문서들의 내용을 바탕으로 답변하세요. "
+            f"{length_guide} "
+            f"오늘은 {today}입니다. 제목에 '[기간 종료]'가 붙은 문서는 신청이 마감된 공고이지만, "
+            "질문자가 해당 내용을 물어봤다면 반드시 내용을 설명하고 첫 문장에 '현재 신청 기간이 종료된 공고입니다'라고 명시하세요. "
+            "절대로 '[기간 종료]' 문서를 근거로 '해당 정보가 없습니다'라고 답하지 마세요. "
+            f"마감일이 {today} 이후이거나 '상시 모집'인 항목은 현재 신청 가능으로 안내하세요."
         )
 
     system_prompt = (
@@ -433,6 +455,7 @@ def build_answer(query: str, context: str, history: list[dict]) -> str:
         f"2. {_FORBIDDEN}\n"
         "3. [참고 자료]에 없는 내용은 절대 추측하거나 지어내지 말 것.\n"
         "4. [참고 자료]에 없는 정책·기관·프로그램은 언급하지 말 것.\n"
+        "4-1. 답변에 http://, https:// URL을 직접 쓰지 말 것. 링크가 필요하면 '참고 출처를 확인하세요'로 대체할 것.\n"
         "5. 각 공지사항 항목의 제목은 [제공된 문서 목록]에 명시된 원본 제목을 그대로 사용할 것. "
         "임의로 축약하거나 다른 이름으로 변경하지 말 것.\n"
         "6. [참고 자료] 내에 '[판독불가]'로 표시된 항목은 해당 내용을 언급하지 말고, "
@@ -452,7 +475,16 @@ def build_answer(query: str, context: str, history: list[dict]) -> str:
         temperature=0.1,
     )
     chain = prompt | llm | StrOutputParser()
-    return chain.invoke({"context": context, "history": history_text, "question": query})
+    answer = chain.invoke({"context": context, "history": history_text, "question": query})
+
+    # URL 후처리: 마크다운 링크 [텍스트](URL) → 텍스트만 남김 (먼저 처리)
+    answer = re.sub(r'\[([^\]]+)\]\(https?://[^\)]+\)', r'\1', answer)
+    # https?:// URL 제거
+    answer = re.sub(r'https?://\S+', '참고 출처를 확인하세요', answer)
+    # www. 로 시작하는 주소도 제거
+    answer = re.sub(r'\bwww\.\S+', '참고 출처를 확인하세요', answer)
+
+    return answer
 
 
 # ─── Streamlit UI ─────────────────────────────────────────────────────────────
@@ -538,6 +570,28 @@ def main() -> None:
                     answer = build_answer(user_input, context, st.session_state.messages[:-1])
 
             st.markdown(answer)
+
+            # 만료 문서 알림 — 마감일을 제목에서 추출해 구체적으로 표시
+            expired_sources = [s for s in sources if "[기간 종료]" in s.get("title", "")]
+            for exp_src in expired_sources:
+                raw = exp_src.get("title", "")
+                # "YYYY. M. D." 형태 마감일 추출 시도
+                m = re.search(r'(\d{4})[.\-년]\s*(\d{1,2})[.\-월]\s*(\d{1,2})', raw)
+                if m:
+                    y, mo, d = m.group(1), m.group(2), m.group(3)
+                    deadline_str = f"{y}년 {int(mo)}월 {int(d)}일"
+                    st.info(f"📅 이 공고는 **{deadline_str}**에 마감된 공고입니다. 유사한 공고가 재개될 수 있으니 [학교 홈페이지](https://www.seoultech.ac.kr)를 확인해 주세요.")
+                else:
+                    st.info("📅 이 공고는 신청 기간이 종료된 공고입니다. 유사한 공고가 재개될 수 있으니 학교 홈페이지를 확인해 주세요.")
+
+            # 청년정책 출처 알림
+            has_youth = any(s.get("category") == "청년정책" for s in sources)
+            if has_youth:
+                st.info(
+                    "ℹ️ 청년정책 정보는 개별 공고 페이지로 직접 연결이 어렵습니다. "
+                    "[온통청년 포털](https://www.youthcenter.go.kr)에서 정책명을 검색해 주세요.",
+                    icon="🔍"
+                )
 
             # 답변에 실제 언급된 출처만 필터링해서 표시
             display_sources = _filter_cited_sources(answer, sources) if sources else []
