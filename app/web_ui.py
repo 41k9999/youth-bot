@@ -228,7 +228,9 @@ def _title_keyword_entries(query: str, vector_db: Chroma) -> list[tuple]:
         if not title or title in seen_titles:
             continue
         match_count = sum(1 for w in words if w in title)
-        if match_count > 0:
+        # 키워드 2개 이상이면 전부 포함된 제목만 (AND), 1개면 포함 여부 (OR)
+        required = len(words) if len(words) >= 2 else 1
+        if match_count >= required:
             seen_titles.add(title)
             scored.append((
                 match_count,
@@ -289,7 +291,10 @@ def retrieve_with_parent(query: str, vector_db: Chroma, k: int = 5) -> tuple[str
         if title:
             seen_titles.add(title)
 
-        parent   = (meta.get("parent_context") or child)[:_MAX_DOC_CHARS]
+        raw_parent = meta.get("parent_context") or child
+        # PDF 페이지 목록 오염 데이터 제거 ("N페이지\nN - 문서제목" 패턴)
+        raw_parent = re.sub(r'\d+페이지\n\d+ - [^\n]+\n?', '', raw_parent)
+        parent   = raw_parent[:_MAX_DOC_CHARS]
         category = meta.get("category", "")
         entry    = (title, url, parent, category)
 
@@ -337,7 +342,9 @@ def retrieve_with_parent(query: str, vector_db: Chroma, k: int = 5) -> tuple[str
                         seen_urls.add(url)
                     if title:
                         seen_titles.add(title)
-                    parent   = (meta.get("parent_context") or child)[:_MAX_DOC_CHARS]
+                    _rp = meta.get("parent_context") or child
+                    _rp = re.sub(r'\d+페이지\n\d+ - [^\n]+\n?', '', _rp)
+                    parent   = _rp[:_MAX_DOC_CHARS]
                     category = meta.get("category", "")
                     entry    = (title, url, parent, category)
                     if _doc_is_expired(title, child):
@@ -586,15 +593,25 @@ def main() -> None:
             expired_sources = [s for s in sources if "[기간 종료]" in s.get("title", "")]
             if expired_sources:
                 def _extract_deadline(raw: str) -> str | None:
-                    # YYYY.M.D 형식
-                    m = re.search(r'(\d{4})[.\-년]\s*(\d{1,2})[.\-월]\s*(\d{1,2})', raw)
+                    # YYYY.M.D~YYYY.M.D 범위 → 끝 날짜
+                    m = re.search(
+                        r'\d{4}[.\-년]\s*\d{1,2}[.\-월]\s*\d{1,2}\.?\s*~\s*'
+                        r'(\d{4})[.\-년]\s*(\d{1,2})[.\-월]\s*(\d{1,2})', raw)
                     if m:
                         return f"{m.group(1)}년 {int(m.group(2))}월 {int(m.group(3))}일"
-                    # ~M/D 또는 M.D 형식 (연도 없음 → 당해 연도 사용)
-                    m2 = re.search(r'[~까지]?\s*(\d{1,2})[/\.월]\s*(\d{1,2})', raw)
+                    # YYYY.M.D~M.D 범위 → 끝 날짜 (연도 앞에서 상속)
+                    m2 = re.search(
+                        r'(\d{4})[.\-년]\s*\d{1,2}[.\-월]\s*\d{1,2}\.?\s*~\s*'
+                        r'(\d{1,2})[/\.월]\s*(\d{1,2})', raw)
                     if m2:
-                        today_yr = date.today().year
-                        return f"{today_yr}년 {int(m2.group(1))}월 {int(m2.group(2))}일"
+                        return f"{m2.group(1)}년 {int(m2.group(2))}월 {int(m2.group(3))}일"
+                    # 단일 YYYY.M.D 또는 ~M/D 형식
+                    m3 = re.search(r'(\d{4})[.\-년]\s*(\d{1,2})[.\-월]\s*(\d{1,2})', raw)
+                    if m3:
+                        return f"{m3.group(1)}년 {int(m3.group(2))}월 {int(m3.group(3))}일"
+                    m4 = re.search(r'~\s*(\d{1,2})[/\.월]\s*(\d{1,2})', raw)
+                    if m4:
+                        return f"{date.today().year}년 {int(m4.group(1))}월 {int(m4.group(2))}일"
                     return None
 
                 deadline = None
