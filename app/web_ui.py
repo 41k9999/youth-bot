@@ -155,6 +155,7 @@ _KEYWORD_STOP_WORDS = {
     "프로그램", "사업", "운영", "교육", "연구", "활용",
     "교수",
     "SeoulTech", "seoultech",
+    "알려줘", "설명해줘", "어떻게", "뭐야", "뭔지", "있어", "해줘", "해봐",
 }
 
 
@@ -307,7 +308,7 @@ def retrieve_with_parent(query: str, vector_db: Chroma, k: int = 5) -> tuple[str
                 seen_titles.add(title)
             entry = (title, url, parent, category)
             if _doc_is_expired(title, child):
-                expired_pool.append(entry)
+                expired_pool.insert(0, entry)  # 키워드 매칭 만료 문서 우선
             else:
                 valid_pool.append(entry)
 
@@ -344,9 +345,10 @@ def retrieve_with_parent(query: str, vector_db: Chroma, k: int = 5) -> tuple[str
                     else:
                         valid_pool.append(entry)
 
-    # 유효 문서 우선, 없으면 만료 문서 상위 2건을 fallback으로 제공
     only_expired = len(valid_pool) == 0 and len(expired_pool) > 0
-    valid_limited   = valid_pool[:_MAX_DOCS]
+    # 만료 문서가 있으면 valid 문서 수를 줄여 LLM이 만료 문서에 집중하게 함
+    valid_cap = max(1, _MAX_DOCS - len(expired_pool[:2])) if expired_pool else _MAX_DOCS
+    valid_limited   = valid_pool[:valid_cap]
     expired_limited = expired_pool[:max(1, _MAX_DOCS - len(valid_limited))]
 
     context_parts: list[str] = []
@@ -473,6 +475,7 @@ def build_answer(query: str, context: str, history: list[dict]) -> str:
         api_key=os.getenv("GROQ_API_KEY"),
         model=os.getenv("MODEL_NAME", "llama-3.1-8b-instant"),
         temperature=0.1,
+        max_tokens=700,
     )
     chain = prompt | llm | StrOutputParser()
     answer = chain.invoke({"context": context, "history": history_text, "question": query})
