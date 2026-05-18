@@ -443,10 +443,12 @@ def build_answer(query: str, context: str, history: list[dict]) -> str:
             f"아래 {len(doc_titles)}개 문서가 제공되었습니다. "
             "반드시 이 문서들의 내용을 바탕으로 답변하세요. "
             f"{length_guide} "
-            f"오늘은 {today}입니다. 제목에 '[기간 종료]'가 붙은 문서는 신청이 마감된 공고이지만, "
-            "질문자가 해당 내용을 물어봤다면 반드시 내용을 설명하고 첫 문장에 '현재 신청 기간이 종료된 공고입니다'라고 명시하세요. "
-            "절대로 '[기간 종료]' 문서를 근거로 '해당 정보가 없습니다'라고 답하지 마세요. "
-            f"마감일이 {today} 이후이거나 '상시 모집'인 항목은 현재 신청 가능으로 안내하세요."
+            f"오늘은 {today}입니다. "
+            "제목에 '[기간 종료]'가 붙은 문서는 신청 기간이 마감된 공고이다. "
+            "이런 문서에 대해 절대로 '현재 신청 가능', '신청할 수 있습니다'라고 쓰지 말 것. "
+            "반드시 첫 문장을 '이 공고는 신청 기간이 종료되었습니다.'로 시작한 뒤 내용을 설명할 것. "
+            "절대로 '[기간 종료]' 문서를 근거로 '해당 정보가 없습니다'라고 답하지 말 것. "
+            f"마감일이 {today} 이후이거나 '상시 모집'인 항목만 현재 신청 가능으로 안내할 것."
         )
 
     system_prompt = (
@@ -479,6 +481,12 @@ def build_answer(query: str, context: str, history: list[dict]) -> str:
     )
     chain = prompt | llm | StrOutputParser()
     answer = chain.invoke({"context": context, "history": history_text, "question": query})
+
+    # 만료 문서 후처리: context에 [기간 종료]가 있는데 "신청 가능"이라고 하면 수정
+    if "[기간 종료]" in context:
+        answer = re.sub(r'현재 신청[이가]?\s*가능합니다', '신청 기간이 마감되었습니다', answer)
+        answer = re.sub(r'신청할 수 있습니다', '신청 기간이 마감되었습니다', answer)
+        answer = re.sub(r'현재 신청\s*가능', '신청 기간 종료', answer)
 
     # URL 후처리: 마크다운 링크 [텍스트](URL) → 텍스트만 남김 (먼저 처리)
     answer = re.sub(r'\[([^\]]+)\]\(https?://[^\)]+\)', r'\1', answer)
@@ -574,18 +582,31 @@ def main() -> None:
 
             st.markdown(answer)
 
-            # 만료 문서 알림 — 마감일을 제목에서 추출해 구체적으로 표시
+            # 만료 문서 알림 — 대표 마감일 1회만 표시 (중복 방지)
             expired_sources = [s for s in sources if "[기간 종료]" in s.get("title", "")]
-            for exp_src in expired_sources:
-                raw = exp_src.get("title", "")
-                # "YYYY. M. D." 형태 마감일 추출 시도
-                m = re.search(r'(\d{4})[.\-년]\s*(\d{1,2})[.\-월]\s*(\d{1,2})', raw)
-                if m:
-                    y, mo, d = m.group(1), m.group(2), m.group(3)
-                    deadline_str = f"{y}년 {int(mo)}월 {int(d)}일"
-                    st.info(f"📅 이 공고는 **{deadline_str}**에 마감된 공고입니다. 유사한 공고가 재개될 수 있으니 [학교 홈페이지](https://www.seoultech.ac.kr)를 확인해 주세요.")
+            if expired_sources:
+                def _extract_deadline(raw: str) -> str | None:
+                    # YYYY.M.D 형식
+                    m = re.search(r'(\d{4})[.\-년]\s*(\d{1,2})[.\-월]\s*(\d{1,2})', raw)
+                    if m:
+                        return f"{m.group(1)}년 {int(m.group(2))}월 {int(m.group(3))}일"
+                    # ~M/D 또는 M.D 형식 (연도 없음 → 당해 연도 사용)
+                    m2 = re.search(r'[~까지]?\s*(\d{1,2})[/\.월]\s*(\d{1,2})', raw)
+                    if m2:
+                        today_yr = date.today().year
+                        return f"{today_yr}년 {int(m2.group(1))}월 {int(m2.group(2))}일"
+                    return None
+
+                deadline = None
+                for exp_src in expired_sources:
+                    deadline = _extract_deadline(exp_src.get("title", ""))
+                    if deadline:
+                        break
+
+                if deadline:
+                    st.info(f"📅 이 공고는 **{deadline}**에 마감된 공고입니다. 유사한 공고가 재개될 수 있으니 [학교 홈페이지](https://www.seoultech.ac.kr)를 확인해 주세요.")
                 else:
-                    st.info("📅 이 공고는 신청 기간이 종료된 공고입니다. 유사한 공고가 재개될 수 있으니 학교 홈페이지를 확인해 주세요.")
+                    st.info("📅 이 공고는 신청 기간이 종료된 공고입니다. 유사한 공고가 재개될 수 있으니 [학교 홈페이지](https://www.seoultech.ac.kr)를 확인해 주세요.")
 
             # 청년정책 출처 알림
             has_youth = any(s.get("category") == "청년정책" for s in sources)
