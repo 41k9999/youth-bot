@@ -1,0 +1,352 @@
+[
+  {
+    "question": "안산시 대학생 본인부담 등록금 반값지원 신청기간은 언제인가요?",
+    "ground_truth": "안산시 대학생 본인부담 등록금 반값지원의 신청기간은 2026년 5월 6일 수요일 09:00부터 6월 5일 금요일 18:00까지입니다.",
+    "expected_doc": "[안산인재육성재단] 2026년 1학기 안산시 대학생 본인부담 등록금 반값지원 공고(~6/5(금)까지)",
+    "category": "장학공지",
+    "url": "https://www.seoultech.ac.kr/service/info/janghak/?do=commonview&searchtext=&searchtype=-1&bnum=5233&bidx=889750&qidx=5233&cate=0&allboard=true"
+  },
+  {
+    "question": "세아해암학술장학재단 2026년도 제5기 커리어챌린지 장학생 모집의 신청자격은 무엇인가요?",
+    "ground_truth": "세아해암학술장학재단 2026년도 제5기 커리어챌린지 장학생 모집의 신청자격은 한국장학재단 선정 스펙트럼 6분위 이하이며, 학업성적 전체 평균 3.0/4.5 이상이어야 하고, 2026-1학기 12학점 이상 수강 계획이 있어야 합니다.",
+    "expected_doc": "[세아해암학술장학재단] 2026년도 제5기 커리어챌린지 장학생 모집 안내",
+    "category": "장학공지",
+    "url": "https://www.seoultech.ac.kr/service/info/janghak/?do=commonview&searchtext=&searchtype=1&bnum=5233&bidx=886676&qidx=5233&cate=0&allboard=true"
+  },
+  {
+    "question": "2026학년도 1학기 대학원 행정실 교내근로 모집의 근로 가능 시간표는 어떻게 작성하나요?",
+    "ground_truth": "근로 가능 시간표에는 수업시간표와 겹치지 않도록 가능한 시간에 모두 동그라미를 표시해야 합니다. 성명란에는 참고용으로 본인의 이름을 기재하고, 선발 후 근무시간 조율이 예정되어 있습니다.",
+    "expected_doc": "[대학원]2026학년도 1학기 대학원 행정실 교내근로 모집",
+    "category": "장학공지",
+    "url": "https://www.seoultech.ac.kr/service/info/janghak/?do=commonview&searchtext=&searchtype=1&bnum=57138&bidx=886737&qidx=57138&cate=0&allboard=true"
+  },
+  {
+    "question": "펄어비스 2026 하계 계절학기 현장실습 모집기간은 언제인가요?",
+    "ground_truth": "펄어비스 2026 하계 계절학기 현장실습 모집기간은 2026년 5월 22일(금)까지입니다.",
+    "expected_doc": "[펄어비스]2026학년도 하계 계절학기 현장실습 모집 공고",
+    "category": "취업공지",
+    "url": "https://www.seoultech.ac.kr/service/info/job/?do=commonview&searchtext=&searchtype=-1&bnum=57926&bidx=890092&qidx=57926&cate=0&allboard=true"
+  },
+  {
+    "question": "ST-히든챔피언 프로그램의 신청기간은 언제인가요?",
+    "ground_truth": "ST-히든챔피언 프로그램의 신청기간은 2026년 5월 4일부터 5월 27일까지입니다. 선착순 50명 마감입니다.",
+    "expected_doc": "[졸업생특화프로그램] ST-히든챔피언「중견·강소 공략반」모집",
+    "category": "취업공지",
+    "url": "https://www.seoultech.ac.kr/service/info/job/?do=commonview&searchtext=&searchtype=-1&bnum=57925&bidx=889947&qidx=57925&cate=0&allboard=true"
+  },
+  {
+    "question": "2026학년도 하계 계절학기 국내 타대학 학점교류 신청기간은 언제인가요?",
+    "ground_truth": "2026학년도 하계 계절학기 국내 타대학 학점교류 신청기간은 2026년 7월 6일 화요일부터 7월 10일 금요일 17:00까지입니다.",
+    "expected_doc": "2026학년도 하계 계절학기 국내 타대학 학점교류 안내(공통)",
+    "category": "학사공지",
+    "url": "https://www.seoultech.ac.kr/service/info/matters/?do=commonview&searchtext=&searchtype=1&bnum=57139&bidx=889499&qidx=57139&cate=0&allboard=true"
+  },
+  {
+    "question": "2026학년도 1학기 등록금 반환기준에 따르면, 학기 개시 후 30일 이내에 자퇴하면 얼마를 반환받을 수 있나요?",
+    "ground_truth": "2026학년도 1학기 학기 개시 후 30일 이내인 2026. 03. 03.부터 04. 01.까지 자퇴할 경우, 등록금의 6분의 5 해당액(입학금 제외)을 반환받을 수 있습니다.",
+    "expected_doc": "2026학년도 1학기 등록금 반환기준 안내",
+    "category": "학사공지",
+    "url": "https://www.seoultech.ac.kr/service/info/matters/?do=commonview&searchtext=&searchtype=1&bnum=6112&bidx=886974&qidx=6112&cate=0&allboard=true"
+  },
+  {
+    "question": "2026년 ST Startup Leader 신청기간은 언제인가요?",
+    "ground_truth": "2026년 ST Startup Leader 신청기간은 5월 29일(금) 13:00까지입니다.",
+    "expected_doc": "[창업지원단] 2026년 ST Startup Leader 모집(Epic 점수 및 장학금 지급)",
+    "category": "대학공지",
+    "url": "https://www.seoultech.ac.kr/service/info/notice/?do=commonview&searchtext=&searchtype=-1&bnum=4691&bidx=890358&qidx=4691&cate=10&allboard=false"
+  },
+  {
+    "question": "한국형 온라인 공개강좌(K-MOOC)의 신청 기간은 어떻게 되나요?",
+    "ground_truth": "한국형 온라인 공개강좌(K-MOOC)는 상시 모집으로 신청할 수 있습니다.",
+    "expected_doc": "한국형 온라인 공개강좌(K-MOOC)",
+    "category": "청년정책",
+    "url": "https://www.youthcenter.go.kr/"
+  },
+  {
+    "question": "아산시 청년 재무상담 서비스 「영앤리치」 신청 자격은 어떻게 되나요?",
+    "ground_truth": "아산시 청년 재무상담 서비스 「영앤리치」의 신청 자격은 18세에서 39세 사이의 청년입니다. 학력 조건이나 추가 자격 조건은 따로 없습니다.",
+    "expected_doc": "아산시 청년 재무상담 서비스 「영앤리치」",
+    "category": "청년정책",
+    "url": "https://www.youthcenter.go.kr/"
+  },
+  {
+    "question": "청소년쉼터 퇴소청소년 자립지원수당의 신청 자격은 무엇인가요?",
+    "ground_truth": "청소년쉼터 퇴소청소년 자립지원수당은 원가정의 보호‧지원을 받을 수 없는 쉼터 퇴소 청소년에게 지원됩니다. 신청 기간은 상시 모집입니다.",
+    "expected_doc": "청소년쉼터 퇴소청소년 자립지원수당",
+    "category": "청년정책",
+    "url": "https://www.youthcenter.go.kr/"
+  },
+  {
+    "question": "탐나는 디지털 창작소 운영사업의 신청 기간은 언제인가요?",
+    "ground_truth": "탐나는 디지털 창작소 운영사업은 상시 모집입니다.",
+    "expected_doc": "탐나는 디지털 창작소 운영사업",
+    "category": "청년정책",
+    "url": "https://www.youthcenter.go.kr/"
+  },
+  {
+    "question": "출산장려금 지원 프로그램의 지원 금액은 얼마인가요?",
+    "ground_truth": "출산장려금 지원 프로그램은 출생 시 100만원을 지원하며, 이후 월 30만원씩 60개월 동안 지원하여 최대 1,900만원을 받을 수 있습니다.",
+    "expected_doc": "출산장려금 지원",
+    "category": "청년정책",
+    "url": "https://www.youthcenter.go.kr/"
+  },
+  {
+    "question": "2026년도 학생예비군 신청방법은 무엇인가요?",
+    "ground_truth": "학생예비군 신청은 학교 통합정보시스템(SUIS)에서 대학생활 메뉴를 통해 예비군대원신고를 등록하면 됩니다. 예비군 신분 확인이 필요하며, 대학원생으로 학번이 부여된 후 신고해야 합니다.",
+    "expected_doc": "[예비군연대] 학생예비군 신청방법 및 동원훈련 연기(3월 첫주 동원훈련 I형 편성인원 필독!)",
+    "category": "대학원공지",
+    "url": "https://www.seoultech.ac.kr/service/info/graduate/?do=commonview&searchtext=&searchtype=1&bnum=56589&bidx=886853&qidx=56589&cate=10&allboard=false"
+  },
+  {
+    "question": "웹메일 장기 미사용 계정 정리 안내의 대상은 무엇인가요?",
+    "ground_truth": "대상은 최근 1년 이상 이메일에 로그인 이력(웹, IMAP, POP3 접속 포함)이 없는 계정입니다.",
+    "expected_doc": "웹메일 장기 미사용 계정 정리 안내",
+    "category": "대학공지",
+    "url": "https://www.seoultech.ac.kr/service/info/notice/?do=commonview&searchtext=&searchtype=1&bnum=4691&bidx=889139&qidx=4691&cate=10&allboard=false"
+  },
+  {
+    "question": "백운광장 스트리트 푸드존 점포운영자 모집 프로그램의 계약기간은 언제부터 언제까지인가요?",
+    "ground_truth": "계약일 ~ 2026. 8. 31. (계약일이 2026.8.31. 이후인 경우 계약일로부터 2027.8.31.까지)",
+    "expected_doc": "(남구) 백운광장 스트리트 푸드존 점포운영자 모집",
+    "category": "청년정책",
+    "url": "https://www.youthcenter.go.kr/"
+  },
+  {
+    "question": "충청남도 전국청년축제의 신청 기간은 언제인가요?",
+    "ground_truth": "2026-09-01 ~ 2026-09-30",
+    "expected_doc": "충청남도 전국청년축제 개최",
+    "category": "청년정책",
+    "url": "https://www.youthcenter.go.kr/"
+  },
+  {
+    "question": "2026학년도 1학기 국가 근로장학생 모집의 신청 방법은 어떻게 되나요?",
+    "ground_truth": "신청자는 자신의 이름을 기입하고, 근로 가능한 시간에 모두 O 표시한 후, 선호하는 시간에 '노란색' 음영을 표시해야 합니다. 선발 후 근무시간은 협의하여 조율 가능합니다.",
+    "expected_doc": "[입학과] 2026학년도 1학기 국가 근로장학생 모집 안내",
+    "category": "장학공지",
+    "url": "https://www.seoultech.ac.kr/service/info/janghak/?do=commonview&searchtext=&searchtype=1&bnum=57138&bidx=886606&qidx=57138&cate=0&allboard=true"
+  },
+  {
+    "question": "학위논문 작성요령 및 템플릿에 어떤 파일이 포함되어 있나요?",
+    "ground_truth": "학위논문 작성요령 및 템플릿에는 국문 논문 체제, 영어 논문 형식 요구사항, 한글 논문 작성 템플릿, 영어 Word 템플릿, 그리고 영어 LaTeX 템플릿이 포함되어 있습니다.",
+    "expected_doc": "[전체대학원]★학위논문 작성요령 및 템플릿(Guidelines and Templates for Thesis Writing)",
+    "category": "대학원공지",
+    "url": "https://www.seoultech.ac.kr/service/info/graduate/?do=commonview&searchtext=&searchtype=-1&bnum=56589&bidx=562122&qidx=56589&cate=10&allboard=false"
+  },
+  {
+    "question": "ST 차세대연구리더 장학생 신청 자격은 어떻게 되나요?",
+    "ground_truth": "ST 차세대연구리더 장학생은 일반대학원 소속의 학생으로, 연구활동 실적이 있는 자를 대상으로 합니다.",
+    "expected_doc": "[일반,철도,IT정책,국방융합,의과학, 나노IT] ST 차세대연구리더(구. 신진연구인재장학금) 장학생 신청 안내",
+    "category": "대학원공지",
+    "url": "https://www.seoultech.ac.kr/service/info/graduate/?do=commonview&searchtext=&searchtype=-1&bnum=56589&bidx=889278&qidx=56589&cate=10&allboard=false"
+  },
+  {
+    "question": "반도체소부장혁신융합대학사업단 마이크로디그리 신청 전 이수 교과목 인정 학기는 어떻게 변동되었나요?",
+    "ground_truth": "반도체소부장혁신융합대학사업단 마이크로디그리 신청 전 이수 교과목 인정 학기가 2025학년도 1학기에서 2025학년도 2학기로 변경되었습니다. 따라서 2025학년도 2학기 수강 과목부터 인정됩니다.",
+    "expected_doc": "[마이크로디그리] 반도체소부장혁신융합사업단 마이크로디그리 신청 전 이수 교과목 인정 학기 변동 안내",
+    "category": "학사공지",
+    "url": "https://www.seoultech.ac.kr/service/info/matters/?do=commonview&searchtext=&searchtype=1&bnum=6112&bidx=886924&qidx=6112&cate=0&allboard=true"
+  },
+  {
+    "question": "2026학년도 마이크로디그리 교육과정에 대한 문의는 어디로 해야 하나요?",
+    "ground_truth": "2026학년도 마이크로디그리 교육과정에 대한 문의는 인공지능융합학부사업단 과장에게 02-970-9742로 연락하시거나, 전공관 및 기초융합과정 마이크로디그리에 대해서는 학사지원과 02-970-6039로 문의하시면 됩니다.",
+    "expected_doc": "2026학년도 마이크로디그리 안내(2026학년도 교육과정 포함)",
+    "category": "학사공지",
+    "url": "https://www.seoultech.ac.kr/service/info/matters/?do=commonview&searchtext=&searchtype=1&bnum=6112&bidx=808582&qidx=6112&cate=0&allboard=true"
+  },
+  {
+    "question": "2026학년도 1학기 합폐강 강좌에 폐강된 강좌는 몇 개인가요?",
+    "ground_truth": "2026학년도 1학기에는 총 43개의 강좌가 폐강되었으며, 이 중 40개는 전공 강좌이고 3개는 교양 강좌입니다.",
+    "expected_doc": "2026학년도 1학기 합폐강 강좌 알림",
+    "category": "학사공지",
+    "url": "https://www.seoultech.ac.kr/service/info/matters/?do=commonview&searchtext=&searchtype=-1&bnum=6112&bidx=887905&qidx=6112&cate=0&allboard=true"
+  },
+  {
+    "question": "자율전공 적응지원 맞춤형 상담은 어떤 학생을 대상으로 하나요?",
+    "ground_truth": "자율전공 적응지원 맞춤형 상담은 자율전공 학생 및 전공 선택에 대한 고민이 있는 학생을 대상으로 진행됩니다.",
+    "expected_doc": "[학생상담센터] 자유전공 적응지원 맞춤형 상담 바로 알기",
+    "category": "대학공지",
+    "url": "https://www.seoultech.ac.kr/service/info/notice/?do=commonview&searchtext=&searchtype=1&bnum=4691&bidx=888971&qidx=4691&cate=10&allboard=false"
+  },
+  {
+    "question": "청년층 임대주택 공급 확대의 신청 자격은 어떻게 되나요?",
+    "ground_truth": "청년층 임대주택 공급 확대의 신청 자격은 19세에서 39세 사이의 저소득 서민, 청년, 신혼부부, 장애인, 국가유공자 등 주거취약계층입니다.",
+    "expected_doc": "청년층 임대주택 공급 확대(통합공공임대주택)",
+    "category": "청년정책",
+    "url": "https://www.youthcenter.go.kr/"
+  },
+  {
+    "question": "2026년도 제5기 커리어챌린지 장학생 모집의 신청자격은 어떻게 되나요?",
+    "ground_truth": "2026년도 제5기 커리어챌린지 장학생 모집의 신청자격은 국내 4년제 대학(원) 재학 중인 28세 이하이며, 전체 학점 평균 3.0/4.5 이상을 유지해야 합니다.",
+    "expected_doc": "[(재)세아해암학술장학재단] 2026년도 제5기 커리어챌린지 장학생 모집 홍보",
+    "category": "장학공지",
+    "url": "https://www.seoultech.ac.kr/service/info/janghak/?do=commonview&searchtext=&searchtype=1&bnum=5233&bidx=886536&qidx=5233&cate=0&allboard=true"
+  },
+  {
+    "question": "2026학년도 1학기 근로장학생 모집의 신청 기간은 언제인가요?",
+    "ground_truth": "2026학년도 1학기 근로장학생 모집의 신청 기간은 2026년 5월 1일부터 5월 31일까지입니다.",
+    "expected_doc": "[재난안전관리본부] 2026학년도 1학기 근로장학생(국가,교내) 모집",
+    "category": "장학공지",
+    "url": "https://www.seoultech.ac.kr/service/info/janghak/?do=commonview&searchtext=&searchtype=1&bnum=57138&bidx=886636&qidx=57138&cate=0&allboard=true"
+  },
+  {
+    "question": "2026 졸업생 특화 프로그램의 신청기간은 언제인가요?",
+    "ground_truth": "2026 졸업생 특화 프로그램의 신청기간은 2026년 수시접수로 선착순 370명까지 모집합니다.",
+    "expected_doc": "2026년 졸업생 특화 프로그램 참여자 모집",
+    "category": "취업공지",
+    "url": "https://www.seoultech.ac.kr/service/info/job/?do=commonview&searchtext=&searchtype=-1&bnum=57925&bidx=889237&qidx=57925&cate=0&allboard=true"
+  },
+  {
+    "question": "한국과학기술연구원(KIST) 현장실습 참여학생 모집의 신청기간은 언제인가요?",
+    "ground_truth": "한국과학기술연구원(KIST) 현장실습 참여학생 모집의 신청기간은 2026년 5월 1일부터 5월 31일까지입니다.",
+    "expected_doc": "(모집 수정) 한국과학기술연구원(KIST) 현장실습 참여학생 모집 안내(2026-하계+2학기 연계)",
+    "category": "취업공지",
+    "url": "https://www.seoultech.ac.kr/service/info/job/?do=commonview&searchtext=&searchtype=-1&bnum=57926&bidx=890136&qidx=57926&cate=0&allboard=true"
+  },
+  {
+    "question": "대학원생 학생예비군 신청방법은 어떻게 되나요?",
+    "ground_truth": "대학원생 학생예비군 신청은 대학생활통합정보시스템(SUIS)에서 신분확인 후 예비군 대원 신고를 통해 진행해야 하며, 학번이 부여된 후 변경된 학번으로 신고해야 합니다.",
+    "expected_doc": "[예비군연대] 대학원생 학생예비군 신청방법",
+    "category": "대학원공지",
+    "url": "https://www.seoultech.ac.kr/service/info/graduate/?do=commonview&searchtext=&searchtype=1&bnum=56589&bidx=736657&qidx=56589&cate=10&allboard=false"
+  },
+  {
+    "question": "2026학년도 1학기 학부 전과의 전입 선발 기준은 어떻게 되나요?",
+    "ground_truth": "2026학년도 1학기 학부 전과의 전입 선발 기준은 성적평가위원회 심사 후 학과회의를 거쳐 선발됩니다. 단, 학과 교육과정을 이수하는 데 부적절하다고 판정되는 경우 전입이 불허됩니다.",
+    "expected_doc": "2026학년도 1학기 학부 전과 안내",
+    "category": "학사공지",
+    "url": "https://www.seoultech.ac.kr/service/info/matters/?do=commonview&searchtext=&searchtype=1&bnum=6112&bidx=691141&qidx=6112&cate=0&allboard=true"
+  },
+  {
+    "question": "AI COSS 전문가 초청 강연은 언제 열리나요?",
+    "ground_truth": "AI COSS 전문가 초청 강연은 2026년 5월 29일 금요일 10:30에 개최됩니다.",
+    "expected_doc": "AI COSS 전문가 초청 강연 개최 안내 (KAIST 이동만 전산학부 교수, 5/29(금), 10:30)",
+    "category": "대학공지",
+    "url": "https://www.seoultech.ac.kr/service/info/notice/?do=commonview&searchtext=&searchtype=-1&bnum=4691&bidx=890329&qidx=4691&cate=10&allboard=false"
+  },
+  {
+    "question": "2025 온라인 취업 서비스 '인다'의 이용 방법은 어떻게 되나요?",
+    "ground_truth": "2025 온라인 취업 서비스 '인다'는 취업진로본부 홈페이지 내 인다 배너를 통해 접속할 수 있으며, 서울과기대 홈페이지의 취업·창업 메뉴에서 찾을 수 있습니다.",
+    "expected_doc": "[안내] 2025 온라인 제휴서비스 이용안내 ( '잇다'(itdaa)-현직자 멘토링)",
+    "category": "취업공지",
+    "url": "https://www.seoultech.ac.kr/service/info/job/?do=commonview&searchtext=&searchtype=1&bnum=57925&bidx=565512&qidx=57925&cate=0&allboard=true"
+  },
+  {
+    "question": "2026-1학기 한국과학기술연구원(KIST) 현장실습 참여학생 모집의 신청 기간은 언제인가요?",
+    "ground_truth": "2026-1학기 한국과학기술연구원(KIST) 현장실습 참여학생 모집의 신청 기간은 2026년 5월 1일부터 5월 31일까지입니다.",
+    "expected_doc": "(분야 추가) 한국과학기술연구원(KIST) 현장실습 참여학생 모집 안내(2026-1학기+하계 연계)",
+    "category": "취업공지",
+    "url": "https://www.seoultech.ac.kr/service/info/job/?do=commonview&searchtext=&searchtype=1&bnum=57926&bidx=811888&qidx=57926&cate=0&allboard=true"
+  },
+  {
+    "question": "2026-1학기 한국과학기술연구원(KIST) 현장실습 참여학생 모집의 신청기간은 언제인가요?",
+    "ground_truth": "2026-1학기 한국과학기술연구원(KIST) 현장실습 참여학생 모집의 신청기간은 2026년 5월 1일부터 5월 31일까지입니다.",
+    "expected_doc": "(수정) 한국과학기술연구원(KIST) 현장실습 참여학생 모집 안내(2026-1학기+하계 연계)",
+    "category": "취업공지",
+    "url": "https://www.seoultech.ac.kr/service/info/job/?do=commonview&searchtext=&searchtype=1&bnum=57926&bidx=802766&qidx=57926&cate=0&allboard=true"
+  },
+  {
+    "question": "학생예비군 예비훈련 참석에 대한 불리한 처우금지 개정안의 주요 내용은 무엇인가요?",
+    "ground_truth": "학생예비군 예비훈련 참석에 대한 불리한 처우금지 개정안의 주요 사항으로는 출석 인정, 학업 관련 강의자료 제공, 예비군훈련 일자에 수시시험 미실시 등이 포함됩니다.",
+    "expected_doc": "[전체대학원] 학생예비군 예비군훈련 참석에 대한 불리한 처우금지 개정안 발령(25.9.19부)",
+    "category": "대학원공지",
+    "url": "https://www.seoultech.ac.kr/service/info/graduate/?do=commonview&searchtext=&searchtype=1&bnum=56589&bidx=565784&qidx=56589&cate=10&allboard=false"
+  },
+  {
+    "question": "학생예비군 훈련에 불참할 경우 어떤 절차가 진행되나요?",
+    "ground_truth": "학생예비군 훈련은 법정의무로 정당한 사유 없이 불참할 경우 '예비군법' 및 관련 규정에 따라 행정적 - 법적 절차가 진행될 수 있습니다.",
+    "expected_doc": "[전체대학원]학생예비군 훈련 안내 (정기 공지)",
+    "category": "대학원공지",
+    "url": "https://www.seoultech.ac.kr/service/info/graduate/?do=commonview&searchtext=&searchtype=1&bnum=56589&bidx=888123&qidx=56589&cate=10&allboard=false"
+  },
+  {
+    "question": "2026학년도 대학원생 해외 연구인턴십 지원의 접수기간은 언제인가요?",
+    "ground_truth": "2026학년도 대학원생 해외 연구인턴십 지원의 접수기간은 2026년 5월 27일(수) 18:00까지입니다.",
+    "expected_doc": "[전체대학원] 2026학년도 대학원생 해외 연구인턴십 지원 계획 알림",
+    "category": "대학원공지",
+    "url": "https://www.seoultech.ac.kr/service/info/graduate/?do=commonview&searchtext=&searchtype=-1&bnum=56589&bidx=889875&qidx=56589&cate=10&allboard=false"
+  },
+  {
+    "question": "2026년도 상반기 학술발표대회 장려금 지원범위는 어떤 조건을 충족해야 하나요?",
+    "ground_truth": "2026년도 상반기 학술발표대회 장려금은 한국연구재단 BK21+ 우수국제학술대회에 제시한 포스터 실적에 한하여 인정됩니다. 그 외의 학술대회 포스터 실적은 미인정됩니다.",
+    "expected_doc": "[전체대학원]2026년도 상반기 학술발표대회 장려금 지원범위[변경] 사전 안내",
+    "category": "대학원공지",
+    "url": "https://www.seoultech.ac.kr/service/info/graduate/?do=commonview&searchtext=&searchtype=1&bnum=56589&bidx=872911&qidx=56589&cate=10&allboard=false"
+  },
+  {
+    "question": "2026학년도 1학기 학석사연계과정 이수예정자 선발 결과는 어디서 확인할 수 있나요?",
+    "ground_truth": "2026학년도 1학기 학석사연계과정 이수예정자 선발 결과는 서울과학기술대학교의 대학원 공지사항에서 확인할 수 있습니다.",
+    "expected_doc": "[일반,의과학대학] 2026학년도 1학기 학석사연계과정 이수예정자 선발 결과 알림",
+    "category": "대학원공지",
+    "url": "https://www.seoultech.ac.kr/service/info/graduate/?do=commonview&searchtext=&searchtype=1&bnum=56589&bidx=777506&qidx=56589&cate=10&allboard=false"
+  },
+  {
+    "question": "2026학년도 1학기 홍보대사 최종 합격자는 누구인가요?",
+    "ground_truth": "2026학년도 1학기 홍보대사 최종 합격자는 스마트ICT융합공학과의 이○현, 영어영문학과의 이○제, 행정학과의 이○원, 경영학과의 박○은, 조형예술학과의 최○영 등입니다.",
+    "expected_doc": "[홍보실] 2026학년도 1학기 학생 홍보대사 최종 합격자 발표",
+    "category": "대학공지",
+    "url": "https://www.seoultech.ac.kr/service/info/notice/?do=commonview&searchtext=&searchtype=1&bnum=4691&bidx=888794&qidx=4691&cate=10&allboard=false"
+  },
+  {
+    "question": "2026년 6월 IEP 영어회화 강좌의 수강료는 얼마인가요?",
+    "ground_truth": "2026년 6월 IEP 영어회화 강좌의 수강료는 120,000원입니다.",
+    "expected_doc": "2026년 6월 국제교류처 IEP 영어회화 강좌 운영 안내",
+    "category": "대학공지",
+    "url": "https://www.seoultech.ac.kr/service/info/notice/?do=commonview&searchtext=&searchtype=1&bnum=4691&bidx=890210&qidx=4691&cate=10&allboard=false"
+  },
+  {
+    "question": "창업보육센터 신규 입주기업 모집의 신청 마감일은 언제인가요?",
+    "ground_truth": "창업보육센터 신규 입주기업 모집의 신청 마감일은 2026년 5월 28일(목) 18시입니다.",
+    "expected_doc": "창업보육센터 신규 입주기업 모집 공고 (2026. 5. 28.(목) 18시 마감)",
+    "category": "대학공지",
+    "url": "https://www.seoultech.ac.kr/service/info/notice/?do=commonview&searchtext=&searchtype=1&bnum=4691&bidx=890074&qidx=4691&cate=10&allboard=false"
+  },
+  {
+    "question": "하이테크관 신축공사의 공사기간은 언제부터 언제까지인가요?",
+    "ground_truth": "하이테크관 신축공사의 공사기간은 2026년 5월 26일(화)부터 2028년 8월 31일(금)까지입니다. 기존 하이테크관 철거는 2026년 5월 26일부터 7월 31일까지 진행됩니다.",
+    "expected_doc": "[공사알림] 하이테크관 신축공사 알림",
+    "category": "대학공지",
+    "url": "https://www.seoultech.ac.kr/service/info/notice/?do=commonview&searchtext=&searchtype=-1&bnum=4691&bidx=890360&qidx=4691&cate=10&allboard=false"
+  },
+  {
+    "question": "2026 전공박람회는 언제 열리나요?",
+    "ground_truth": "2026 전공박람회는 2026년 5월 19일(화)부터 5월 20일(수)까지 오전 10시부터 오후 5시까지 열립니다.",
+    "expected_doc": "[교육혁신원]2026 전공박람회 \"전공은 선택 Easy\" 2026.5.19.(화)~5.20.(수) 10:00~17:00 체육관",
+    "category": "대학공지",
+    "url": "https://www.seoultech.ac.kr/service/info/notice/?do=commonview&searchtext=&searchtype=-1&bnum=4691&bidx=890353&qidx=4691&cate=10&allboard=false"
+  },
+  {
+    "question": "2026학년도 1학기 ST인턴 모집의 근로 가능 시간표는 어떻게 되나요?",
+    "ground_truth": "2026학년도 1학기 ST인턴 모집의 근로 가능 시간표는 수업시간표와 겹치지 않도록 조율할 예정이며, 지원자는 가능한 시간에 모두 동그라미를 표시해야 합니다.",
+    "expected_doc": "[정보전산원] 2026학년도 1학기 ST인턴 모집 안내",
+    "category": "장학공지",
+    "url": "https://www.seoultech.ac.kr/service/info/janghak/?do=commonview&searchtext=&searchtype=1&bnum=57138&bidx=886505&qidx=57138&cate=0&allboard=true"
+  },
+  {
+    "question": "9월 16일(화) 재.맞.고 이벤트에서 ST굿즈를 받을 수 있는 조건은 무엇인가요?",
+    "ground_truth": "9월 16일(화) 재.맞.고 이벤트에서 ST굿즈를 받으려면 신규 재맞고 신청 또는 잔케어 AI 서비스 이용, 또는 AI 자기소개서 '나임' 서비스에 학교 이메일 인증으로 가입해야 하며, 선착순 20명에게 증정됩니다.",
+    "expected_doc": "★ 9월 16일(화) 향학로에서 만나요~! (재.맞.고 신청자 및 퀴즈 이벤트 진행)",
+    "category": "취업공지",
+    "url": "https://www.seoultech.ac.kr/service/info/job/?do=commonview&searchtext=&searchtype=1&bnum=57925&bidx=565779&qidx=57925&cate=0&allboard=true"
+  },
+  {
+    "question": "2026학년도 1학기 국가 근로장학생 모집의 신청기간은 언제인가요?",
+    "ground_truth": "2026학년도 1학기 국가 근로장학생 모집의 신청기간은 2026년 5월 6일부터 5월 27일까지입니다.",
+    "expected_doc": "[미래융합대학] 2026학년도 1학기 국가 근로장학생 모집",
+    "category": "장학공지",
+    "url": "https://www.seoultech.ac.kr/service/info/janghak/?do=commonview&searchtext=&searchtype=1&bnum=57138&bidx=886669&qidx=57138&cate=0&allboard=true"
+  },
+  {
+    "question": "완주군 창업보육센터 운영의 신청 방식은 어떻게 되나요?",
+    "ground_truth": "완주군 창업보육센터 운영의 신청 방식은 상시 모집입니다.",
+    "expected_doc": "완주군 창업보육센터 운영",
+    "category": "청년정책",
+    "url": "https://www.youthcenter.go.kr/"
+  },
+  {
+    "question": "청년단기숙소 지원사업의 신청 자격은 어떻게 되나요?",
+    "ground_truth": "청년단기숙소 지원사업의 신청 자격은 18세에서 39세 사이의 청년입니다.",
+    "expected_doc": "청년단기숙소 지원사업",
+    "category": "청년정책",
+    "url": "https://www.youthcenter.go.kr/"
+  }
+]
