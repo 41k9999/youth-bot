@@ -633,41 +633,50 @@ def main() -> None:
 
             st.markdown(answer)
 
-            # 만료 문서 알림 — 대표 마감일 1회만 표시 (중복 방지)
+            # 만료 문서 알림
             expired_sources = [s for s in sources if "[기간 종료]" in s.get("title", "")]
+            valid_sources   = [s for s in sources if "[기간 종료]" not in s.get("title", "")]
             if expired_sources:
-                def _extract_deadline(raw: str) -> str | None:
-                    # YYYY.M.D~YYYY.M.D 범위 → 끝 날짜
-                    m = re.search(
-                        r'\d{4}[.\-년]\s*\d{1,2}[.\-월]\s*\d{1,2}\.?\s*~\s*'
-                        r'(\d{4})[.\-년]\s*(\d{1,2})[.\-월]\s*(\d{1,2})', raw)
-                    if m:
-                        return f"{m.group(1)}년 {int(m.group(2))}월 {int(m.group(3))}일"
-                    # YYYY.M.D~M.D 범위 → 끝 날짜 (연도 앞에서 상속)
-                    m2 = re.search(
-                        r'(\d{4})[.\-년]\s*\d{1,2}[.\-월]\s*\d{1,2}\.?\s*~\s*'
-                        r'(\d{1,2})[/\.월]\s*(\d{1,2})', raw)
-                    if m2:
-                        return f"{m2.group(1)}년 {int(m2.group(2))}월 {int(m2.group(3))}일"
-                    # 단일 YYYY.M.D 또는 ~M/D 형식
-                    m3 = re.search(r'(\d{4})[.\-년]\s*(\d{1,2})[.\-월]\s*(\d{1,2})', raw)
-                    if m3:
-                        return f"{m3.group(1)}년 {int(m3.group(2))}월 {int(m3.group(3))}일"
-                    m4 = re.search(r'~\s*(\d{1,2})[/\.월]\s*(\d{1,2})', raw)
-                    if m4:
-                        return f"{date.today().year}년 {int(m4.group(1))}월 {int(m4.group(2))}일"
-                    return None
-
-                deadline = None
-                for exp_src in expired_sources:
-                    deadline = _extract_deadline(exp_src.get("title", ""))
-                    if deadline:
-                        break
-
-                if deadline:
-                    st.info(f"📅 이 공고는 **{deadline}**에 마감된 공고입니다. 유사한 공고가 재개될 수 있으니 [학교 홈페이지](https://www.seoultech.ac.kr)를 확인해 주세요.")
+                if valid_sources:
+                    # 만료+유효 혼재 — 사용자가 각 항목의 [기간 종료] 태그를 직접 확인하도록 안내
+                    st.warning(
+                        "⚠️ 위 답변에는 **신청 가능한 공고**와 **기간이 종료된 공고**가 함께 포함되어 있습니다. "
+                        "각 항목 옆의 **[기간 종료]** 표시를 확인해 주세요."
+                    )
                 else:
-                    st.info("📅 이 공고는 신청 기간이 종료된 공고입니다. 유사한 공고가 재개될 수 있으니 [학교 홈페이지](https://www.seoultech.ac.kr)를 확인해 주세요.")
+                    # 전체 만료 — 대표 마감일 추출 후 안내
+                    def _extract_deadline(raw: str) -> str | None:
+                        # YYYY.M.D~YYYY.M.D 범위 → 끝 날짜
+                        m = re.search(
+                            r'\d{4}[.\-년]\s*\d{1,2}[.\-월]\s*\d{1,2}\.?\s*~\s*'
+                            r'(\d{4})[.\-년]\s*(\d{1,2})[.\-월]\s*(\d{1,2})', raw)
+                        if m:
+                            return f"{m.group(1)}년 {int(m.group(2))}월 {int(m.group(3))}일"
+                        # YYYY.M.D~M.D 범위 → 끝 날짜 (연도 앞에서 상속)
+                        m2 = re.search(
+                            r'(\d{4})[.\-년]\s*\d{1,2}[.\-월]\s*\d{1,2}\.?\s*~\s*'
+                            r'(\d{1,2})[/\.월]\s*(\d{1,2})', raw)
+                        if m2:
+                            return f"{m2.group(1)}년 {int(m2.group(2))}월 {int(m2.group(3))}일"
+                        # 단일 YYYY.M.D 또는 ~M/D 형식
+                        m3 = re.search(r'(\d{4})[.\-년]\s*(\d{1,2})[.\-월]\s*(\d{1,2})', raw)
+                        if m3:
+                            return f"{m3.group(1)}년 {int(m3.group(2))}월 {int(m3.group(3))}일"
+                        m4 = re.search(r'~\s*(\d{1,2})[/\.월]\s*(\d{1,2})', raw)
+                        if m4:
+                            return f"{date.today().year}년 {int(m4.group(1))}월 {int(m4.group(2))}일"
+                        return None
+
+                    deadline = None
+                    for exp_src in expired_sources:
+                        deadline = _extract_deadline(exp_src.get("title", ""))
+                        if deadline:
+                            break
+
+                    if deadline:
+                        st.info(f"📅 이 공고는 **{deadline}**에 마감된 공고입니다. 유사한 공고가 재개될 수 있으니 [학교 홈페이지](https://www.seoultech.ac.kr)를 확인해 주세요.")
+                    else:
+                        st.info("📅 이 공고는 신청 기간이 종료된 공고입니다. 유사한 공고가 재개될 수 있으니 [학교 홈페이지](https://www.seoultech.ac.kr)를 확인해 주세요.")
 
             # 청년정책 출처 알림
             has_youth = any(s.get("category") == "청년정책" for s in sources)
