@@ -162,6 +162,26 @@ _KEYWORD_STOP_WORDS = {
 _FALLBACK_MAX = 6  # 키워드 fallback 최대 반환 문서 수
 
 
+def _clean_parent(text: str) -> str:
+    """LLM 전달 전 컨텍스트 정제: 청년정책 메타데이터, 첨부파일 섹션, 빈 항목 제거."""
+    # 청년정책 구조 메타데이터 줄 통째로 제거 (값 무관)
+    _meta_keys = (
+        r'정책\s*분류|정책분류|지원\s*유형|지원유형|주관\s*기관|주관기관'
+        r'|지역|신청\s*방식|신청방식|학력\s*조건|학력조건'
+        r'|추가\s*자격\s*조건|추가자격조건|지원\s*유형별|신청\s*URL|신청URL'
+    )
+    text = re.sub(rf'(?m)^.*?(?:{_meta_keys})[^\n]*\n?', '', text)
+    # 값이 '-'뿐인 항목 행 제거
+    text = re.sub(r'(?m)^[^\n]+:\s*-+\s*$\n?', '', text)
+    # 첨부파일 섹션 제거
+    text = re.sub(r'#{1,3}\s*첨부파일.*?(?=#{1,3}|\Z)', '', text, flags=re.DOTALL)
+    # "신청 URL" 테이블 행 제거
+    text = re.sub(r'\|[^\|]*신청\s*URL[^\n]*\n?', '', text)
+    # 3줄 이상 연속 빈줄 → 1줄로
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    return text.strip()
+
+
 def _rewrite_query_for_search(query: str) -> str:
     """구어체/간접 쿼리를 벡터 검색에 적합한 핵심 명사 키워드로 변환합니다.
 
@@ -294,7 +314,7 @@ def retrieve_with_parent(query: str, vector_db: Chroma, k: int = 5) -> tuple[str
         raw_parent = meta.get("parent_context") or child
         # PDF 페이지 목록 오염 데이터 제거 ("N페이지\nN - 문서제목" 패턴)
         raw_parent = re.sub(r'\d+페이지\n\d+ - [^\n]+\n?', '', raw_parent)
-        parent   = raw_parent[:_MAX_DOC_CHARS]
+        parent   = _clean_parent(raw_parent)[:_MAX_DOC_CHARS]
         category = meta.get("category", "")
         entry    = (title, url, parent, category)
 
@@ -344,7 +364,7 @@ def retrieve_with_parent(query: str, vector_db: Chroma, k: int = 5) -> tuple[str
                         seen_titles.add(title)
                     _rp = meta.get("parent_context") or child
                     _rp = re.sub(r'\d+페이지\n\d+ - [^\n]+\n?', '', _rp)
-                    parent   = _rp[:_MAX_DOC_CHARS]
+                    parent   = _clean_parent(_rp)[:_MAX_DOC_CHARS]
                     category = meta.get("category", "")
                     entry    = (title, url, parent, category)
                     if _doc_is_expired(title, child):
@@ -442,9 +462,13 @@ def build_answer(query: str, context: str, history: list[dict]) -> str:
         )
     else:
         length_guide = (
-            "핵심 정보(날짜·금액·자격 등)만 2~4문장으로 간결하게 답변하세요. 불필요한 부연 설명은 생략하세요."
+            "아래 형식으로 간결하게 답변하세요:\n"
+            "- [공고/프로그램명]: [핵심 정보(마감일·자격·금액 등)]\n"
+            "제공된 문서에 없는 일반 직무 설명·배경지식·중복 문장은 절대 포함하지 말 것. "
+            "공고 내용만 요약할 것."
             if not is_detail else
-            "질문에 대해 날짜·자격·방법·서류 등 관련 정보를 항목별로 구체적으로 답변하세요."
+            "질문에 대해 날짜·자격·방법·서류 등 관련 정보를 항목별로 구체적으로 답변하세요. "
+            "제공된 문서에 없는 일반 지식은 포함하지 말 것."
         )
         doc_instruction = (
             f"아래 {len(doc_titles)}개 문서가 제공되었습니다. "
