@@ -164,14 +164,14 @@ _FALLBACK_MAX = 6  # 키워드 fallback 최대 반환 문서 수
 
 def _clean_parent(text: str) -> str:
     """LLM 전달 전 컨텍스트 정제: 청년정책 메타데이터, 첨부파일 섹션, 빈 항목 제거."""
-    # 청년정책 구조 메타데이터 줄 통째로 제거 (값 무관)
+    # 청년정책 구조 메타데이터 줄 통째로 제거 (사용자에게 유의미하지 않은 분류 정보)
+    # 학력조건/추가자격조건은 "없음" 등 유의미한 값을 가질 수 있으므로 제외
     _meta_keys = (
-        r'정책\s*분류|정책분류|지원\s*유형|지원유형|주관\s*기관|주관기관'
-        r'|지역|신청\s*방식|신청방식|학력\s*조건|학력조건'
-        r'|추가\s*자격\s*조건|추가자격조건|지원\s*유형별|신청\s*URL|신청URL'
+        r'정책\s*분류|정책분류|지원\s*유형(?:별)?|지원유형(?:별)?|주관\s*기관|주관기관'
+        r'|신청\s*방식|신청방식|신청\s*URL|신청URL'
     )
-    text = re.sub(rf'(?m)^.*?(?:{_meta_keys})[^\n]*\n?', '', text)
-    # 값이 '-'뿐인 항목 행 제거
+    text = re.sub(rf'(?m)^[^\n]*?(?:{_meta_keys})[^\n]*\n?', '', text)
+    # 값이 '-'뿐인 항목 행 제거 (학력조건: -, 추가자격조건: - 등)
     text = re.sub(r'(?m)^[^\n]+:\s*-+\s*$\n?', '', text)
     # 첨부파일 섹션 제거
     text = re.sub(r'#{1,3}\s*첨부파일.*?(?=#{1,3}|\Z)', '', text, flags=re.DOTALL)
@@ -424,10 +424,20 @@ def _filter_cited_sources(answer: str, sources: list[dict]) -> list[dict]:
     return cited if cited else sources
 
 
+def _extract_count_constraint(query: str) -> int | None:
+    """쿼리에서 개수 제한(예: '5개만', '3가지') 추출."""
+    m = re.search(r'(\d+)\s*(?:개|가지|건|항목)', query)
+    if m:
+        n = int(m.group(1))
+        return n if 1 <= n <= 20 else None
+    return None
+
+
 def build_answer(query: str, context: str, history: list[dict]) -> str:
     _DETAIL_KEYWORDS = {"자세히", "자세하게", "구체적으로", "상세히", "상세하게"}
     is_detail = any(kw in query for kw in _DETAIL_KEYWORDS)
     today = date.today().strftime("%Y년 %m월 %d일")
+    count_limit = _extract_count_constraint(query)
 
     context = context[:_MAX_CONTEXT_CHARS]
     recent_history = history[-_MAX_HISTORY_MSGS:]
@@ -461,6 +471,11 @@ def build_answer(query: str, context: str, history: list[dict]) -> str:
             "'유사한 공고가 다시 열릴 수 있으니 학교 홈페이지를 확인하세요.'라고 덧붙이세요."
         )
     else:
+        count_instruction = (
+            f"사용자가 정확히 {count_limit}개를 요청했습니다. "
+            f"답변에 항목을 정확히 {count_limit}개만 포함할 것. 더 많거나 더 적게 나열하지 말 것.\n"
+            if count_limit else ""
+        )
         length_guide = (
             "아래 형식으로 간결하게 답변하세요:\n"
             "- [공고/프로그램명]: [핵심 정보(마감일·자격·금액 등)]\n"
@@ -473,13 +488,15 @@ def build_answer(query: str, context: str, history: list[dict]) -> str:
         doc_instruction = (
             f"아래 {len(doc_titles)}개 문서가 제공되었습니다. "
             "반드시 이 문서들의 내용을 바탕으로 답변하세요. "
+            f"{count_instruction}"
             f"{length_guide} "
+            "동일한 출처(같은 문서)의 내용은 하나의 항목으로만 정리할 것. "
+            "같은 문서를 '취업', '현장실습' 등 다른 측면으로 나눠 두 번 언급하지 말 것.\n"
             f"오늘은 {today}입니다. "
-            "제목에 '[기간 종료]'가 붙은 문서는 신청 기간이 마감된 공고이다. "
-            "이런 문서에 대해 절대로 '현재 신청 가능', '신청할 수 있습니다'라고 쓰지 말 것. "
-            "반드시 첫 문장을 '이 공고는 신청 기간이 종료되었습니다.'로 시작한 뒤 내용을 설명할 것. "
-            "절대로 '[기간 종료]' 문서를 근거로 '해당 정보가 없습니다'라고 답하지 말 것. "
-            f"마감일이 {today} 이후이거나 '상시 모집'인 항목만 현재 신청 가능으로 안내할 것."
+            "각 문서의 제목 끝에 '[기간 종료]' 태그가 있으면 그 문서만 마감됨으로 안내하고, "
+            "태그가 없는 문서는 내용의 날짜를 확인해 신청 가능/예정으로 안내할 것. "
+            "여러 문서를 다룰 때 각 문서를 개별적으로 판단할 것 — 일부가 마감이어도 나머지는 독립적으로 안내. "
+            "절대로 '[기간 종료]' 문서를 근거로 '해당 정보가 없습니다'라고 답하지 말 것."
         )
 
     system_prompt = (
@@ -513,15 +530,18 @@ def build_answer(query: str, context: str, history: list[dict]) -> str:
     chain = prompt | llm | StrOutputParser()
     answer = chain.invoke({"context": context, "history": history_text, "question": query})
 
-    # 만료 문서 후처리: context에 [기간 종료]가 있는데 "신청 가능"이라고 하면 수정
-    if "[기간 종료]" in context:
+    # 만료 문서 후처리: 모든 문서가 만료된 경우에만 적용 (has_expired_fallback)
+    # — 유효+만료 혼재 시엔 LLM 판단을 신뢰해 유효 문서 텍스트를 손상하지 않음
+    if has_expired_fallback:
         answer = re.sub(r'현재 신청[이가]?\s*가능합니다', '신청 기간이 마감되었습니다', answer)
         answer = re.sub(r'신청할 수 있습니다', '신청 기간이 마감되었습니다', answer)
         answer = re.sub(r'현재 신청\s*가능', '신청 기간 종료', answer)
 
     # URL 후처리: 마크다운 링크 [텍스트](URL) → 텍스트만 남김 (먼저 처리)
     answer = re.sub(r'\[([^\]]+)\]\(https?://[^\)]+\)', r'\1', answer)
-    # https?:// URL 제거
+    # 괄호 안 단독 URL: (https://...) → 괄호째 제거 (문장 구조 보존)
+    answer = re.sub(r'\s*\(\s*https?://\S+?\s*\)', '', answer)
+    # 나머지 bare https?:// URL
     answer = re.sub(r'https?://\S+', '참고 출처를 확인하세요', answer)
     # www. 로 시작하는 주소도 제거
     answer = re.sub(r'\bwww\.\S+', '참고 출처를 확인하세요', answer)
