@@ -39,7 +39,7 @@ _MAX_CONTEXT_CHARS = 8_000
 _MAX_HISTORY_MSGS = 2
 _MAX_DOCS = 4
 _MAX_DOC_CHARS = 1_500
-_SCORE_THRESHOLD = 0.15  # 이 점수 미만인 문서는 관련 없는 것으로 판단해 제외
+_SCORE_THRESHOLD = 0.20  # 이 점수 미만인 문서는 관련 없는 것으로 판단해 제외
 
 
 @st.cache_resource(show_spinner="ChromaDB 로드 중...")
@@ -464,14 +464,15 @@ def build_answer(query: str, context: str, history: list[dict]) -> str:
     titles_list = "\n".join(f"  {i+1}. {t}" for i, t in enumerate(doc_titles))
     has_expired_fallback = "⚠️ [안내]" in context
 
-    # 문서가 있음을 LLM에 명시적으로 전달 — "찾을 수 없다"는 판단을 LLM에 맡기지 않음
     _FORBIDDEN = (
         "다음 표현은 절대 사용 금지: "
         "'현재 제공된 문서에 대한 정보는 없습니다', "
         "'해당 정보를 찾을 수 없습니다', "
         "'관련 정보가 없습니다', "
         "'제공된 문서가 없습니다'. "
-        "문서가 제공된 이상 반드시 그 내용을 답변에 활용하라."
+        "문서가 제공된 이상 반드시 그 내용을 답변에 활용하라. "
+        "단, 문서 내용과 전혀 무관한 질문(맛집, 날씨, 오락 등)에는 "
+        "'학사 어드바이저로서 답변하기 어렵습니다. 학교 홈페이지를 확인해 주세요.'라고 답할 것."
     )
 
     if has_expired_fallback:
@@ -541,11 +542,13 @@ def build_answer(query: str, context: str, history: list[dict]) -> str:
     answer = chain.invoke({"context": context, "history": history_text, "question": query})
 
     # 만료 문서 후처리: 모든 문서가 만료된 경우에만 적용 (has_expired_fallback)
-    # — 유효+만료 혼재 시엔 LLM 판단을 신뢰해 유효 문서 텍스트를 손상하지 않음
     if has_expired_fallback:
         answer = re.sub(r'현재 신청[이가]?\s*가능합니다', '신청 기간이 마감되었습니다', answer)
         answer = re.sub(r'신청할 수 있습니다', '신청 기간이 마감되었습니다', answer)
         answer = re.sub(r'현재 신청\s*가능', '신청 기간 종료', answer)
+        # 종료 표현이 전혀 없으면 앞에 안내 문구 강제 추가
+        if not any(kw in answer for kw in ["종료", "마감", "기간이 지난", "신청 불가"]):
+            answer = "⚠️ 현재 신청 기간이 종료된 정보입니다. 참고용으로 확인하세요.\n\n" + answer
 
     # URL 후처리: 마크다운 링크 [텍스트](URL) → 텍스트만 남김 (먼저 처리)
     answer = re.sub(r'\[([^\]]+)\]\(https?://[^\)]+\)', r'\1', answer)
