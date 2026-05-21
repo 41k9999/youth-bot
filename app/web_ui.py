@@ -178,7 +178,7 @@ def _clean_parent(text: str) -> str:
     # 학력조건/추가자격조건은 "없음" 등 유의미한 값을 가질 수 있으므로 제외
     _meta_keys = (
         r'정책\s*분류|정책분류|지원\s*유형(?:별)?|지원유형(?:별)?|주관\s*기관|주관기관'
-        r'|신청\s*방식|신청방식|신청\s*URL|신청URL'
+        r'|신청\s*방식|신청방식|신청\s*URL|신청URL|지역'
     )
     text = re.sub(rf'(?m)^[^\n]*?(?:{_meta_keys})[^\n]*\n?', '', text)
     # 값이 '-'뿐인 항목 행 제거 (학력조건: -, 추가자격조건: - 등)
@@ -549,6 +549,15 @@ def build_answer(query: str, context: str, history: list[dict]) -> str:
         # 종료 표현이 전혀 없으면 앞에 안내 문구 강제 추가
         if not any(kw in answer for kw in ["종료", "마감", "기간이 지난", "신청 불가"]):
             answer = "⚠️ 현재 신청 기간이 종료된 정보입니다. 참고용으로 확인하세요.\n\n" + answer
+
+    # 청년정책 메타데이터 줄 답변에서 제거 (컨텍스트에서 복사된 경우 방지)
+    answer = re.sub(
+        r'(?m)^[^\n]*?(?:정책\s*분류|지원\s*유형(?:별)?|주관\s*기관|신청\s*방식|신청\s*URL|지역)[^\n]*\n?',
+        '', answer
+    )
+    # 값이 '-'뿐인 항목 행 제거 (예: 학력 조건: -, 추가 자격 조건: -)
+    answer = re.sub(r'(?m)^[^\n]+:\s*-+\s*$\n?', '', answer)
+    answer = re.sub(r'\n{3,}', '\n\n', answer)  # 빈 줄 정리
 
     # URL 후처리: 마크다운 링크 [텍스트](URL) → 텍스트만 남김 (먼저 처리)
     answer = re.sub(r'\[([^\]]+)\]\(https?://[^\)]+\)', r'\1', answer)
