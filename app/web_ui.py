@@ -39,7 +39,7 @@ _MAX_CONTEXT_CHARS = 8_000
 _MAX_HISTORY_MSGS = 2
 _MAX_DOCS = 4
 _MAX_DOC_CHARS = 1_500
-_SCORE_THRESHOLD = 0.20  # 이 점수 미만인 문서는 관련 없는 것으로 판단해 제외
+_SCORE_THRESHOLD = 0.25  # 이 점수 미만인 문서는 관련 없는 것으로 판단해 제외
 
 
 @st.cache_resource(show_spinner="ChromaDB 로드 중...")
@@ -471,8 +471,8 @@ def build_answer(query: str, context: str, history: list[dict]) -> str:
         "'관련 정보가 없습니다', "
         "'제공된 문서가 없습니다'. "
         "문서가 제공된 이상 반드시 그 내용을 답변에 활용하라. "
-        "단, 문서 내용과 전혀 무관한 질문(맛집, 날씨, 오락 등)에는 "
-        "'학사 어드바이저로서 답변하기 어렵습니다. 학교 홈페이지를 확인해 주세요.'라고 답할 것."
+        "'일반적으로', '보통', '대개' 등의 표현으로 일반 지식을 추가하는 것은 절대 금지. "
+        "[참고 자료]에 명시된 내용만 답변에 포함할 것."
     )
 
     if has_expired_fallback:
