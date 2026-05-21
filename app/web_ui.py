@@ -68,6 +68,9 @@ def get_db_stats(vector_db: Chroma) -> dict:
 _EXPIRED_KEYWORDS = [
     "(마감)", "(선발완료)", "(종료)", "(접수마감)", "(모집완료)", "마감됨",
     "(지급완료)", "지급완료",
+    # 과거 학기·연도가 제목에 명시된 경우 만료로 처리
+    "2025학년도", "2025년도", "2025-1학기", "2025-2학기",
+    "25-1학기", "25-2학기", "2025년 하반기", "2025년 상반기",
 ]
 
 # 종료일 전용 패턴 — "까지/마감" 컨텍스트가 있는 날짜만 인식 (시작일·일반 날짜 제외)
@@ -108,6 +111,13 @@ def _doc_is_expired(title: str, child_summary: str) -> bool:
     """
     today = date.today()
     if any(kw in title for kw in _EXPIRED_KEYWORDS):
+        return True
+
+    # 과거 연도 + 월 패턴 (예: "2025년 9월", "2025년 9~10월")
+    _past_year_month = re.compile(
+        rf'{today.year - 1}년\s*\d{{1,2}}[~～\-]?\d{{0,2}}월'
+    )
+    if _past_year_month.search(title):
         return True
 
     text = title + " " + child_summary
