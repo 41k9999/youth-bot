@@ -25,7 +25,7 @@ except Exception:
     pass
 
 st.set_page_config(
-    page_title="SeoulTech 학사 어드바이저",
+    page_title="ChaTech",
     page_icon="🎓",
     layout="wide",
 )
@@ -323,7 +323,11 @@ def retrieve_with_parent(query: str, vector_db: Chroma, k: int = 5) -> tuple[str
 
         raw_parent = meta.get("parent_context") or child
         # PDF 페이지 목록 오염 데이터 제거 ("N페이지\nN - 문서제목" 패턴)
-        raw_parent = re.sub(r'\d+페이지\n\d+ - [^\n]+\n?', '', raw_parent)
+        # PDF 목차 오염 데이터 제거
+        raw_parent = re.sub(r'(?m)^#{0,6}\s*\d+페이지\s*$\n?', '', raw_parent)  # "#### 2페이지"
+        raw_parent = re.sub(r'(?m)^-\s*\d+\s*-\s*$\n?', '', raw_parent)         # "- 2 -"
+        raw_parent = re.sub(r'(?m)^\d+\s*-\s*[^\n]*$\n?', '', raw_parent)        # "2 - 텍스트"
+        raw_parent = re.sub(r'\d+페이지\n\d+ - [^\n]+\n?', '', raw_parent)       # 혼합 형식
         parent   = _clean_parent(raw_parent)[:_MAX_DOC_CHARS]
         category = meta.get("category", "")
         entry    = (title, url, parent, category)
@@ -334,14 +338,23 @@ def retrieve_with_parent(query: str, vector_db: Chroma, k: int = 5) -> tuple[str
             valid_pool.append(entry)
 
     # 키워드 직접 매칭 — 항상 실행해 벡터 검색 누락 문서(만료 포함) 보완
-    for title, url, parent, category, child in _title_keyword_entries(query, vector_db):
+    for title, url, kw_parent, category, child in _title_keyword_entries(query, vector_db):
             if (url and url in seen_urls) or (title and title in seen_titles):
                 continue
             if url:
                 seen_urls.add(url)
             if title:
                 seen_titles.add(title)
-            entry = (title, url, parent, category)
+            # 키워드 fallback 경로에도 PDF 오염 데이터 제거 적용
+            kw_parent = re.sub(r'(?m)^#{0,6}\s*\d+페이지\s*$\n?', '', kw_parent)
+            kw_parent = re.sub(r'(?m)^-\s*\d+\s*-\s*$\n?', '', kw_parent)
+            kw_parent = re.sub(r'(?m)^\d+\s*-\s*[^\n]*$\n?', '', kw_parent)
+            kw_parent = re.sub(r'\d+페이지\n\d+ - [^\n]+\n?', '', kw_parent)
+            kw_parent = _clean_parent(kw_parent)[:_MAX_DOC_CHARS]
+            # 정제 후 내용이 너무 짧으면 child_summary로 대체 (PDF 미리보기 오염 케이스)
+            if len(kw_parent.strip()) < 80:
+                kw_parent = child
+            entry = (title, url, kw_parent, category)
             if _doc_is_expired(title, child):
                 expired_pool.insert(0, entry)  # 키워드 매칭 만료 문서 우선
             else:
@@ -373,6 +386,9 @@ def retrieve_with_parent(query: str, vector_db: Chroma, k: int = 5) -> tuple[str
                     if title:
                         seen_titles.add(title)
                     _rp = meta.get("parent_context") or child
+                    _rp = re.sub(r'(?m)^#{0,6}\s*\d+페이지\s*$\n?', '', _rp)
+                    _rp = re.sub(r'(?m)^-\s*\d+\s*-\s*$\n?', '', _rp)
+                    _rp = re.sub(r'(?m)^\d+\s*-\s*[^\n]*$\n?', '', _rp)
                     _rp = re.sub(r'\d+페이지\n\d+ - [^\n]+\n?', '', _rp)
                     parent   = _clean_parent(_rp)[:_MAX_DOC_CHARS]
                     category = meta.get("category", "")
@@ -606,7 +622,7 @@ def main() -> None:
             st.rerun()
 
     # ── 메인 영역 ──────────────────────────────────────────────────────────────
-    st.title("🎓 SeoulTech 학사 어드바이저")
+    st.title("🎓 ChaTech")
     st.caption("서울과학기술대학교 공지사항 및 청년 지원 정책을 질의할 수 있습니다.")
 
     if stats["total"] == 0:
