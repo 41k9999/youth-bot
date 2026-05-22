@@ -166,6 +166,7 @@ _KEYWORD_STOP_WORDS = {
     "교수",
     "SeoulTech", "seoultech",
     "알려줘", "설명해줘", "어떻게", "뭐야", "뭔지", "있어", "해줘", "해봐",
+    "자세하게", "자세히", "상세하게", "상세히", "구체적으로",
 }
 
 
@@ -398,6 +399,22 @@ def retrieve_with_parent(query: str, vector_db: Chroma, k: int = 5) -> tuple[str
                     else:
                         valid_pool.append(entry)
 
+    # 쿼리 키워드 추출 후 각 pool을 키워드 overlap 순으로 재정렬
+    # → 쿼리와 직접 관련 있는 문서가 앞으로 와서 무관 문서가 컨텍스트 앞자리 차지하는 현상 방지
+    _raw_words = re.split(r'[\s,·\-\(\)\[\]]+', query)
+    _ptcl = re.compile(r'(에서|으로|한테서|에게서|에게|한테|에|의|을|를|이|가|은|는|도|만|과|와)$')
+    _q_kws = [_ptcl.sub('', w) for w in _raw_words
+              if len(w) >= 2 and w not in _KEYWORD_STOP_WORDS]
+    _q_kws = [w for w in _q_kws if len(w) >= 2]
+
+    def _kw_overlap(entry: tuple) -> int:
+        title = entry[0]
+        return sum(1 for w in _q_kws if w in title)
+
+    if _q_kws:
+        valid_pool   = sorted(valid_pool,   key=_kw_overlap, reverse=True)
+        expired_pool = sorted(expired_pool, key=_kw_overlap, reverse=True)
+
     only_expired = len(valid_pool) == 0 and len(expired_pool) > 0
     # 만료 문서가 있으면 valid 문서 수를 줄여 LLM이 만료 문서에 집중하게 함
     valid_cap = max(1, _MAX_DOCS - len(expired_pool[:2])) if expired_pool else _MAX_DOCS
@@ -510,6 +527,7 @@ def build_answer(query: str, context: str, history: list[dict]) -> str:
             "공고 내용만 요약할 것."
             if not is_detail else
             "질문에 대해 날짜·자격·방법·서류 등 관련 정보를 항목별로 구체적으로 답변하세요. "
+            "각 문서의 원본 제목을 그대로 사용하고 다른 문서의 이름으로 대체하지 말 것. "
             "제공된 문서에 없는 일반 지식은 포함하지 말 것."
         )
         doc_instruction = (
