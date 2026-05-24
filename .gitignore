@@ -42,11 +42,11 @@ airflow.cfg
 # ── 벡터 DB (대용량 바이너리) ─────────────────────────────────────────────────
 chroma_db/
 
-# ── 평가 결과물 / 실험 파일 ───────────────────────────────────────────────────
-ragas_*.json
-eval_v2_*.json
-golden_set_v2.json
-retrieval_results.json
+# ── 평가 결과물 / 실험 파일 (루트만, eval/ 폴더는 제외) ────────────────────────
+/ragas_*.json
+/eval_v2_*.json
+/golden_set_v2.json
+/retrieval_results.json
 
 # ── 프로토타입 (히스토리용, 포트폴리오 불필요) ──────────────────────────────
 prototype1/
