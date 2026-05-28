@@ -72,7 +72,7 @@ def get_db_stats(vector_db: Chroma) -> dict:
 
 # ── 만료 판단 ─────────────────────────────────────────────────────────────────
 _EXPIRED_KEYWORDS = [
-    "(마감)", "(선발완료)", "(종료)", "(접수마감)", "(모집완료)", "마감됨",
+    "(마감)", "_마감", "(선발완료)", "(종료)", "(접수마감)", "(모집완료)", "마감됨",
     "(지급완료)", "지급완료",
     # 선발 완료 / 합격자 발표 — 이미 진행이 끝난 공고
     "최종합격자", "합격자 발표", "합격자발표", "선발완료", "결과발표",
@@ -211,6 +211,17 @@ def _doc_is_expired(title: str, child_summary: str, parent: str = "") -> bool:
         try:
             if date(int(y), int(m), int(d_)) < today: return True
         except ValueError: pass
+
+    # 학기 근로/인턴 공고 휴리스틱: VLM이 마감일을 추출하지 못한("기간: 명시 없음") 경우
+    # 1학기 근로/인턴 모집은 통상 2~3월 마감 → 4월 이후 반입은 만료로 처리
+    # 2학기 근로/인턴 모집은 통상 8~9월 마감 → 10월 이후 반입은 만료로 처리
+    # 대상 키워드: 실제로 학기 단위 모집이 이뤄지는 교내근로 유형만 적용
+    _SEMESTER_RECRUIT_KW = {"ST근로", "ST인턴", "ST튜터", "교내근로장학생", "교내근로"}
+    if any(kw in title for kw in _SEMESTER_RECRUIT_KW) and "기간: 명시 없음" in child_summary:
+        if "1학기" in title and today.month >= 4:
+            return True
+        if "2학기" in title and today.month >= 10:
+            return True
 
     return False
 
@@ -352,9 +363,19 @@ def _title_keyword_entries(query: str, vector_db: Chroma) -> list[tuple]:
     # 한국어 어절 경계 체크: 키워드가 다른 한글 문자에 붙어 있으면 미매칭
     # 예: "수강신청" in "의무수강신청" → 앞에 "무(한글)" → 매칭 제외
     # 예: "수강신청" in "수강신청 확인" → 앞에 공백/없음 → 매칭 포함
+    # 예외(서브스트링 허용): "연구실"·"인턴" 등 의미 어근은 복합어 안에 포함돼도 매칭
+    # 예: "연구실" in "뇌인공지능연구실", "인턴" in "청년인턴십 공고"
+    _SUBSTRING_OK_KEYWORDS = {"연구실", "인턴십", "장학금", "장학", "인턴", "실험실"}
+
     def _standalone_match(keyword: str, text: str) -> bool:
-        pattern = r'(?<![가-힣])' + re.escape(keyword) + r'(?![가-힣])'
-        return bool(re.search(pattern, text))
+        # 어절 경계 기준 독립 매칭 (앞뒤에 한글이 없어야 함)
+        standalone = r'(?<![가-힣])' + re.escape(keyword) + r'(?![가-힣])'
+        if re.search(standalone, text):
+            return True
+        # 의미 어근 키워드는 복합어 안에 포함돼도 허용 (단순 in 체크)
+        if keyword in _SUBSTRING_OK_KEYWORDS:
+            return keyword in text
+        return False
 
     for meta, content in zip(all_data["metadatas"], all_data["documents"]):
         title = meta.get("title", "")
@@ -802,6 +823,15 @@ def retrieve_with_parent(query: str, vector_db: Chroma, k: int = 5) -> tuple[str
 
     # 유효 문서만 LLM 컨텍스트에 포함
     _YOUTH_LEADING_TITLE = re.compile(r'^##\s+[^\n]+\n+(?:---\s*\n+)?')
+
+    def _extract_parent_title(raw_parent: str) -> str:
+        """parent_context 첫 번째 # 헤딩에서 카테고리 태그 제거 후 반환.
+        OCR 오류로 stored title과 parent 제목이 다를 때 _filter_cited_sources 보조용."""
+        m = re.match(r'#+\s*(.+)', raw_parent.strip())
+        if not m:
+            return ""
+        return re.sub(r'^(\[.*?\]\s*)+', '', m.group(1)).strip()
+
     for title, url, parent, category in valid_limited:
         _pctx = parent
         if category == "청년정책":
@@ -809,11 +839,16 @@ def retrieve_with_parent(query: str, vector_db: Chroma, k: int = 5) -> tuple[str
             # context header "### [청년정책] 정책명"과 내용이 동일해 LLM 답변에 제목이 두 번 나타나는 현상 방지
             _pctx = _YOUTH_LEADING_TITLE.sub('', _pctx).strip()
         context_parts.append(f"### [{category}] {title}\n\n{_pctx}")
-        sources.append({"title": title, "url": url, "category": category, "in_context": True})
+        sources.append({"title": title, "url": url, "category": category, "in_context": True,
+                        "parent_title": _extract_parent_title(parent)})
 
-    # 유효 문서들과 쿼리 키워드 overlap 최대값 — 만료 doc 직접 질문 오발동 방지에 사용
-    # 만료 doc의 overlap이 유효 doc보다 높아야만 "직접 질문 만료"로 처리
-    _max_valid_overlap = max((_kw_overlap(e) for e in valid_limited), default=0)
+    # 유효 문서들의 제목 키워드 overlap 최대값 — 만료 doc 직접 질문 오발동 방지에 사용
+    # ※ _kw_overlap(제목+본문) 대신 _title_overlap(제목만)을 기준으로 비교
+    #   이유: "가족 장학금" 쿼리에서 "선원가족 장학사업"(valid)의 본문에 "장학금"이 등장해
+    #         _kw_overlap=2가 되면 _has_enough_valid=True로 오판 → "SeoulTech 가족 장학금"(expired)
+    #         이 컨텍스트에서 제외되는 버그. 제목 기준으로만 비교하면 "선원가족 장학사업"의
+    #         title_overlap=1("가족"만 일치) < expired title_overlap=2("가족"+"장학금") → 올바르게 표시.
+    _max_valid_title_overlap = max((_title_overlap(e) for e in valid_limited), default=0)
 
     # 만료 문서 처리:
     # - only_expired: 전체 내용 LLM 컨텍스트에 포함
@@ -830,16 +865,16 @@ def retrieve_with_parent(query: str, vector_db: Chroma, k: int = 5) -> tuple[str
         _expired_kw_hit = bool(_q_kws) and any(
             kw in title for kw in _q_kws if kw not in _EXPIRED_KW_STOP
         )
-        # 이 만료 문서의 overlap이 유효 문서 최대 overlap보다 높아야만 "직접 질문 만료" 처리
-        # 예: "가족 장학금" → 유효(Alliance 장학금 overlap=1) < 만료(가족장학금 overlap=2) → 만료 표시 ✓
-        # 예: "해외 인턴십 있어?" → 유효(인턴십 공고 overlap=2) ≥ 만료(해외인턴십 overlap=2) → 표시 안 함 ✓
-        _this_expired_overlap = _kw_overlap((title, url, parent, category))
+        # 이 만료 문서의 제목 기준 overlap — 유효 문서 최대 title_overlap과 비교
+        # 예: "가족 장학금" → 유효(선원가족 장학사업 title_overlap=1) < 만료(가족장학금 title_overlap=2) → 만료 표시 ✓
+        # 예: "해외 인턴십 있어?" → 유효(인턴십 공고 title_overlap=2) ≥ 만료(해외인턴십 title_overlap=2) → 표시 안 함 ✓
+        _this_expired_title_overlap = _title_overlap((title, url, parent, category))
         # 지역 검증된 유효 문서가 있으면 다른 지역 만료 문서를 context에 포함시킬 필요 없음
         # 예: "서울권 거주 대학생" → 서울 유효 정책 4건이 있는데 통영시(경남) 만료 문서를 context에 넣으면
         #     has_direct_expired=True로 인해 LLM이 "신청 기간 종료" 첫 문장 강제 출력 → 혼란 유발
         _valid_has_geo_coverage = any(e[0] in _loc_filter_titles for e in valid_limited)
         _has_enough_valid = (
-            (len(valid_limited) >= 1 and _max_valid_overlap >= _this_expired_overlap)
+            (len(valid_limited) >= 1 and _max_valid_title_overlap >= _this_expired_title_overlap)
             or _valid_has_geo_coverage
         )
         _add_to_context = only_expired or (_expired_kw_hit and not _has_enough_valid)
@@ -865,7 +900,8 @@ def retrieve_with_parent(query: str, vector_db: Chroma, k: int = 5) -> tuple[str
         # in_context 여부를 sources에 기록 — _filter_cited_sources가 컨텍스트 외 만료 문서를
         # 출처로 잘못 노출하는 문제 방지 (같은 키워드로 공통 매칭되는 케이스)
         sources.append({"title": tagged, "url": url, "category": category,
-                        "in_context": _add_to_context})
+                        "in_context": _add_to_context,
+                        "parent_title": _extract_parent_title(parent)})
 
     return "\n\n---\n\n".join(context_parts), sources
 
@@ -892,23 +928,31 @@ def _filter_cited_sources(answer: str, sources: list[dict]) -> list[dict]:
         tokens = re.split(r'[\s\(\)\[\],·\-_/]+', core)
         return [t for t in tokens if len(t) >= 5 and t not in _GENERIC]
 
-    def _is_cited(title: str) -> bool:
+    def _is_cited(title: str, parent_title: str = "") -> bool:
+        ans_nospace = re.sub(r'(?<=[가-힣]) +(?=[가-힣])', '', answer)
         keywords = _extract_keywords(title)
         if keywords:
             # 한국어 공백 정규화: "가족 장학금"(답변) ↔ "가족장학금"(제목 키워드) 매칭
             # LLM이 사용자 질문 표기를 그대로 따라 공백을 넣는 경우 발생
-            ans_nospace = re.sub(r'(?<=[가-힣]) +(?=[가-힣])', '', answer)
-            return any(kw in answer or kw in ans_nospace for kw in keywords)
+            if any(kw in answer or kw in ans_nospace for kw in keywords):
+                return True
+        # parent_title 키워드로 재시도
+        # OCR 오류로 stored title이 LLM이 사용하는 parent_context 제목과 다른 경우 대비
+        # 예: stored="뇌인공지능연구실"(OCR 오류), parent="뇌인지기능연구실"(정확) → parent_title로 매칭
+        if parent_title:
+            pt_keywords = _extract_keywords(parent_title)
+            if pt_keywords and any(kw in answer or kw in ans_nospace for kw in pt_keywords):
+                return True
         # 모든 토큰이 5자 미만인 경우 (짧은 한국어 정책명 등):
         # 정제된 전체 제목이 답변에 포함되어야만 cited로 인정.
         # 이렇게 하면 짧은 청년정책 제목도 정확히 매칭되고, 엉뚱한 fallback 방지.
         core = _get_core(title)
-        return bool(core) and core in answer
+        return bool(core) and (core in answer or core in ans_nospace)
 
     # in_context=True 문서만 citation 대상으로 한정
     # → 컨텍스트에 없는 만료 문서가 공통 키워드("데이터사이언스학과" 등)로 잘못 매칭되는 문제 방지
     context_sources = [s for s in sources if s.get("in_context", True)]
-    cited = [s for s in context_sources if _is_cited(s.get("title", ""))]
+    cited = [s for s in context_sources if _is_cited(s.get("title", ""), s.get("parent_title", ""))]
     _no_info_patterns = (
         "정보가 없습니다", "찾을 수 없습니다", "자세한 정보는 없습니다",
         "관련 정보가 없습니다", "데이터베이스에 없습니다",
@@ -918,7 +962,24 @@ def _filter_cited_sources(answer: str, sources: list[dict]) -> list[dict]:
     if not cited:
         if any(p in answer for p in _no_info_patterns):
             return []
-        return context_sources if context_sources else []
+        # 정확 매칭 실패 시: 4자 이상 단어 교집합으로 약한 출처 후보 추출
+        # → 전혀 무관한 소스가 폴백으로 표시되는 문제 방지
+        # 예: 데이터사이언스학과 연구실 답변에 청년정책(평택시 인턴)이 출처로 뜨는 케이스
+        _ans_tokens = {
+            w for w in re.split(r'[\s\(\)\[\],/·\-_\*#|]+', answer)
+            if len(w) >= 4 and w not in _GENERIC and not w.isdigit()
+        }
+        partial = []
+        for s in context_sources:
+            _t_all = s.get("title", "") + " " + s.get("parent_title", "")
+            _t_tokens = {
+                w for w in re.split(r'[\s\(\)\[\],/·\-_\*#|]+', _t_all)
+                if len(w) >= 4 and w not in _GENERIC and not w.isdigit()
+            }
+            if _t_tokens & _ans_tokens:  # 교집합이 있으면 약한 매칭으로 출처 인정
+                partial.append(s)
+        # 약한 매칭도 없으면 빈 목록 반환 — 잘못된 출처 노출보다 미표시가 낫다
+        return partial if partial else []
     return cited
 
 
@@ -1096,9 +1157,12 @@ def build_answer(query: str, context: str, history: list[dict]) -> str:
 
     # 직접 질문 만료 문서가 있을 때 첫 문장 강제 지시 (system_prompt 최하단에 배치해 우선순위 확보)
     direct_expired_override = (
-        "\n\n[최우선 지시] [참고 자료]에 '⚠️ [직접 질문 만료]' 표시 문서가 있습니다. "
-        "답변의 첫 번째 문장은 반드시 '현재 이 장학금/공고의 신청 기간은 종료된 정보입니다'로 시작하세요. "
-        "그 다음 내용(자격·금액·조건 등)을 참고용으로 설명하세요."
+        "\n\n[최우선 지시 — 반드시 따를 것] [참고 자료]에 '⚠️ [직접 질문 만료]' 표시 문서가 있습니다. "
+        "이 공고/장학금의 신청 기간은 이미 종료되었습니다. "
+        "답변의 첫 번째 문장은 반드시 다음 경고문을 그대로 출력하세요: "
+        "'⚠️ 현재 이 공고/장학금의 신청 기간은 종료된 정보입니다.' "
+        "경고문 다음에 줄바꿈 후, 참고용으로 자격·금액·조건 등을 설명하세요. "
+        "경고 없이 바로 내용을 설명하는 것은 절대 금지합니다."
         if has_direct_expired else ""
     )
 
@@ -1182,9 +1246,18 @@ def build_answer(query: str, context: str, history: list[dict]) -> str:
                 "아래는 참고가 될 수 있는 과거 자료입니다 😊\n\n"
             ) + answer
 
-    # 직접 질문 만료 후처리: LLM이 지시를 무시한 경우 강제 삽입
-    if has_direct_expired and not any(kw in answer for kw in ["종료", "마감", "기간이 지", "신청 불가"]):
-        answer = "현재 이 장학금/공고의 신청 기간은 종료된 정보입니다.\n\n" + answer
+    # 직접 질문 만료 후처리: 항상 ⚠️ 배너를 맨 앞에 보장
+    if has_direct_expired:
+        _expire_banner = "⚠️ **현재 이 공고/장학금의 신청 기간은 종료된 정보입니다.**"
+        # LLM이 이미 경고를 첫 줄에 넣었으면 중복 방지, 아니면 강제 삽입
+        _first_line = answer.split('\n')[0]
+        _already_warned = any(kw in _first_line for kw in ["종료", "마감", "신청 불가", "기간이 지", "⚠️"])
+        if not _already_warned:
+            answer = _expire_banner + "\n\n" + answer
+        else:
+            # 첫 줄에 ⚠️ 이모지가 없으면 배너 아이콘만 보강
+            if "⚠️" not in _first_line:
+                answer = "⚠️ " + answer
 
     # 마크다운 헤더(## / ###) → 볼드체 변환 (LLM이 포맷 규칙을 무시한 경우 방어)
     # ### 제목 → **제목**, ## 제목 → **제목**
