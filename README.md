@@ -47,9 +47,11 @@ Child로 관련 문서를 찾고, Parent의 전체 정보로 답변을 생성하
 
 ---
 
-## 평가 결과 (RAGAS)
+## 평가 결과
 
 동일한 골든셋(`eval/golden_set_v2.json`, 50개 Q&A) 기준으로 이전 버전(prototype2)과 비교했습니다.
+
+### RAGAS
 
 | 지표 | prototype2 | **ChaTech** |
 |------|:----------:|:-----------:|
@@ -59,6 +61,17 @@ Child로 관련 문서를 찾고, Parent의 전체 정보로 답변을 생성하
 | Context Recall | 0.9200 | 0.7900 |
 
 > prototype2는 child 요약 기반으로 컨텍스트 점수가 높지만, 실제 질문 의도에 부합하는 답변 생성(Answer Relevancy)에서는 Parent-Child RAG를 적용한 ChaTech이 앞섭니다.
+
+### Q-A 직접 임베딩 유사도 (text-embedding-3-small)
+
+생성 답변과 정답(ground truth)을 직접 임베딩하여 코사인 유사도를 측정한 결과입니다.
+
+| 지표 | prototype2 | **ChaTech** |
+|------|:----------:|:-----------:|
+| **평균 유사도** | 0.7219 | **0.7991 ↑** |
+| 0.7 이상 비율 | 31 / 50 | **44 / 50 ↑** |
+
+> ChaTech은 parent_markdown 전체 문서를 컨텍스트로 활용하여 정답에 더 가까운 문장을 생성하며, 직접 유사도 기준으로 prototype2 대비 약 10%p 높은 성능을 보입니다.
 
 평가 스크립트 및 결과 : [`eval/`](./eval)
 
@@ -93,8 +106,9 @@ app/
 eval/
 ├── run_ragas.py                        # RAGAS 평가 스크립트
 ├── golden_set_v2.json                  # 평가용 Q&A 50개
-├── ragas_results_8b_v2golden.json      # ChaTech 평가 결과
-└── ragas_results_proto2_v2golden.json  # prototype2 비교 결과
+├── ragas_results_8b_v2golden.json      # ChaTech RAGAS 평가 결과
+├── ragas_results_proto2_v2golden.json  # prototype2 RAGAS 비교 결과
+└── qa_similarity_analysis.json         # Q-A 직접 임베딩 유사도 분석 결과
 prototype2/
 └── streamlit_proto2.py  # 비교 대상 이전 버전
 ```
